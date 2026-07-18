@@ -1,0 +1,43 @@
+/* ============================================
+   RTL – Right-to-Left Support for Arabic
+   ============================================ */
+
+/* Base RTL text alignment */
+[dir="rtl"] {
+  text-align: right;
+}
+
+/* LTR overrides inside RTL (e.g. phone numbers, emails) */
+[dir="rtl"] [dir="ltr"] {
+  text-align: left;
+  unicode-bidi: embed;
+}
+
+/* Flip directional icons in RTL */
+[dir="rtl"] .rtl-flip {
+  transform: scaleX(-1);
+}
+
+/* Reverse sibling spacing for RTL (margin-left → margin-right) */
+[dir="rtl"] .rtl-space-reverse > * + * {
+  margin-right: calc(var(--space-reverse, 0.25rem) * -1);
+  margin-left: 0;
+}
+
+/* Scrollbar direction */
+[dir="rtl"] ::-webkit-scrollbar {
+  direction: rtl;
+}
+
+/* Input number spinners */
+[dir="rtl"] input[type="number"] {
+  direction: ltr;
+  text-align: right;
+}
+
+/* Force LTR for email/url inputs */
+[dir="rtl"] input[type="email"],
+[dir="rtl"] input[type="url"] {
+  direction: ltr;
+  text-align: right;
+}

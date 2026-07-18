@@ -1,0 +1,844 @@
+// ============================================
+// Photography Pixel Hub — Prisma Schema
+// ============================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================
+// Enums
+// ============================================
+
+enum UserRole {
+  OWNER
+  ADMIN
+  EDITOR
+  MEDIA_BUYER
+  PHOTOGRAPHER
+  CLIENT
+}
+
+enum ProjectStatus {
+  DRAFT
+  IN_PROGRESS
+  READY
+  DOWNLOAD_ENABLED
+  COMPLETED
+  ARCHIVED
+}
+
+enum RetentionPeriod {
+  TWENTY_FOUR_HOURS
+  FORTY_EIGHT_HOURS
+  SEVENTY_TWO_HOURS
+  SEVEN_DAYS
+  CUSTOM
+}
+
+enum VideoStatus {
+  UPLOADING
+  PROCESSING
+  READY
+  FAILED
+  DELETED
+}
+
+enum ActivityType {
+  CREATE
+  UPDATE
+  DELETE
+  LOGIN
+  LOGOUT
+  UPLOAD
+  DOWNLOAD
+  VIEW
+  ARCHIVE
+  RESTORE
+  RETENTION_CHANGE
+  DELIVERY_CREATED
+  DELIVERY_UPDATED
+  DELIVERY_PUBLISHED
+  DELIVERY_DISABLED
+  DELIVERY_VIEWED
+  DOWNLOAD_STARTED
+  DOWNLOAD_COMPLETED
+  COMMENT_CREATED
+  COMMENT_UPDATED
+  COMMENT_RESOLVED
+  COMMENT_REOPENED
+  COMMENT_ARCHIVED
+  VIDEO_APPROVED
+}
+
+enum ClientStatus {
+  ACTIVE
+  ARCHIVED
+  BLOCKED
+}
+
+enum DeliveryStatus {
+  ACTIVE
+  EXPIRED
+  DISABLED
+}
+
+enum CommentStatus {
+  OPEN
+  RESOLVED
+  ARCHIVED
+}
+
+enum AuthorType {
+  CLIENT
+  TEAM
+}
+
+enum ModelStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum PaymentStatus {
+  PENDING
+  PARTIALLY_PAID
+  PAID
+}
+
+enum QuoteStatus {
+  DRAFT
+  SENT
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PARTIALLY_PAID
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  BANK_TRANSFER
+  CREDIT_CARD
+  OTHER
+}
+
+enum TeamMemberStatus {
+  ACTIVE
+  INACTIVE
+  ON_LEAVE
+}
+
+enum TeamRole {
+  OWNER
+  ADMIN
+  PROJECT_MANAGER
+  PHOTOGRAPHER
+  VIDEOGRAPHER
+  EDITOR
+  DESIGNER
+  MEDIA_BUYER
+  ACCOUNTANT
+}
+
+enum ShootStatus {
+  SCHEDULED
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  BLOCKED
+  DONE
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum ProjectWorkflowStatus {
+  NEW
+  PLANNING
+  SHOOTING
+  EDITING
+  REVIEW
+  REVISION
+  APPROVED
+  DELIVERED
+  PAID
+  COMPLETED
+  ARCHIVED
+}
+
+enum ProjectEventType {
+  PROJECT_CREATED
+  PROJECT_UPDATED
+  PROJECT_STATUS_CHANGED
+  VIDEOS_UPLOADED
+  UPLOAD_FAILED
+  DELIVERY_CREATED
+  DELIVERY_PUBLISHED
+  DELIVERY_VIEWED
+  DOWNLOAD_STARTED
+  DOWNLOAD_COMPLETED
+  COMMENT_ADDED
+  COMMENT_RESOLVED
+  VIDEO_APPROVED
+  INVOICE_CREATED
+  INVOICE_PAID
+  PROJECT_COMPLETED
+  WORKFLOW_TRANSITION
+  MODEL_ASSIGNED
+  MODEL_REMOVED
+  MODEL_VIDEOS_UPDATED
+  MODEL_PAYMENT_UPDATED
+  QUOTE_CREATED
+  QUOTE_SENT
+  QUOTE_APPROVED
+  QUOTE_REJECTED
+  INVOICE_SENT
+  PAYMENT_RECEIVED
+  TEAM_MEMBER_ASSIGNED
+  TEAM_MEMBER_REMOVED
+  TEAM_ROLE_CHANGED
+  SHOOT_CREATED
+  SHOOT_UPDATED
+  SHOOT_CONFIRMED
+  SHOOT_STARTED
+  SHOOT_COMPLETED
+  SHOOT_CANCELLED
+  TASK_CREATED
+  TASK_ASSIGNED
+  TASK_UPDATED
+  TASK_STARTED
+  TASK_COMPLETED
+  TASK_OVERDUE
+}
+
+// ============================================
+// Models
+// ============================================
+
+model User {
+  id        String   @id @default(uuid()) @db.Uuid
+  email     String   @unique
+  name      String
+  password  String
+  role      UserRole @default(PHOTOGRAPHER)
+  avatar    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clients      Client[]
+  activityLogs ActivityLog[]
+
+  @@index([email])
+  @@map("users")
+}
+
+model Client {
+  id         String       @id @default(uuid()) @db.Uuid
+  userId     String       @db.Uuid
+  clientCode String       @unique
+  name       String
+  company    String?
+  email      String
+  phone      String?
+  notes      String?
+  status     ClientStatus @default(ACTIVE)
+  token      String       @unique
+  archivedAt DateTime?
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projects  Project[]
+  downloads Download[]
+  views     View[]
+  quotes    Quote[]
+  invoices  Invoice[]
+
+  @@unique([userId, email])
+  @@index([userId])
+  @@index([email])
+  @@index([token])
+  @@index([status])
+  @@index([clientCode])
+  @@map("clients")
+}
+
+model Project {
+  id             String         @id @default(uuid()) @db.Uuid
+  projectCode    String         @unique
+  clientId       String         @db.Uuid
+  name           String
+  description    String?
+  status         ProjectStatus  @default(DRAFT)
+  workflowStatus ProjectWorkflowStatus @default(NEW)
+  retentionPeriod RetentionPeriod @default(TWENTY_FOUR_HOURS)
+  deadline       DateTime?
+  token          String         @unique
+  archivedAt     DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  client    Client    @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  videos    Video[]
+  downloads Download[]
+  views     View[]
+  deliveries Delivery[]
+  timelineEvents ProjectTimelineEvent[]
+  projectModels ProjectModel[]
+  quotes    Quote[]
+  invoices  Invoice[]
+  projectAssignments ProjectAssignment[]
+  shoots    Shoot[]
+  tasks     Task[]
+
+  @@index([clientId])
+  @@index([status])
+  @@index([workflowStatus])
+  @@index([token])
+  @@index([projectCode])
+  @@index([archivedAt])
+  @@index([retentionPeriod])
+  @@map("projects")
+}
+
+model Video {
+  id              String       @id @default(uuid()) @db.Uuid
+  videoCode       String       @unique
+  projectId       String       @db.Uuid
+  title           String
+  originalFileName String
+  storageKey      String       @unique
+  storageBucket   String
+  mimeType        String
+  extension       String
+  fileSize        BigInt
+  duration        Int?
+  width           Int?
+  height          Int?
+  thumbnailUrl    String?
+  streamUrl       String?
+  downloadUrl     String?
+  status          VideoStatus  @default(UPLOADING)
+  uploadedAt      DateTime?
+  processedAt     DateTime?
+  deletedAt       DateTime?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  downloads Download[]
+  views     View[]
+  deliveryVideos DeliveryVideo[]
+  reviewComments  ReviewComment[]
+
+  @@index([projectId])
+  @@index([status])
+  @@index([videoCode])
+  @@index([deletedAt])
+  @@map("videos")
+}
+
+model Download {
+  id        String   @id @default(uuid()) @db.Uuid
+  videoId   String   @db.Uuid
+  clientId  String   @db.Uuid
+  projectId String   @db.Uuid
+  ip        String?
+  userAgent String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  video   Video   @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  client  Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([videoId])
+  @@index([clientId])
+  @@index([projectId])
+  @@map("downloads")
+}
+
+model View {
+  id        String   @id @default(uuid()) @db.Uuid
+  videoId   String   @db.Uuid
+  clientId  String   @db.Uuid
+  projectId String   @db.Uuid
+  ip        String?
+  userAgent String?
+  duration   Int?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  video   Video   @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  client  Client  @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([videoId])
+  @@index([clientId])
+  @@index([projectId])
+  @@map("views")
+}
+
+model Delivery {
+  id               String         @id @default(uuid()) @db.Uuid
+  deliveryCode     String         @unique
+  projectId       String         @db.Uuid
+  title           String
+  slug            String         @unique
+  status          DeliveryStatus @default(ACTIVE)
+  expiresAt       DateTime?
+  downloadEnabled Boolean        @default(true)
+  allowStreaming  Boolean        @default(true)
+  allowComments   Boolean        @default(false)
+  passwordProtected Boolean      @default(false)
+  passwordHash    String?
+  viewCount       Int            @default(0)
+  downloadCount   Int            @default(0)
+  lastViewedAt    DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  project  Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  videos   DeliveryVideo[]
+  reviewComments  ReviewComment[]
+
+  @@index([projectId])
+  @@index([status])
+  @@index([slug])
+  @@index([deliveryCode])
+  @@map("deliveries")
+}
+
+model DeliveryVideo {
+  id         String   @id @default(uuid()) @db.Uuid
+  deliveryId String   @db.Uuid
+  videoId    String   @db.Uuid
+  order      Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  delivery Delivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  video    Video    @relation(fields: [videoId], references: [id], onDelete: Cascade)
+
+  @@unique([deliveryId, videoId])
+  @@index([deliveryId])
+  @@index([videoId])
+  @@map("delivery_videos")
+}
+
+model ReviewComment {
+  id                String        @id @default(uuid()) @db.Uuid
+  commentCode       String        @unique
+  videoId           String        @db.Uuid
+  deliveryId        String        @db.Uuid
+  parentId          String?      @db.Uuid
+  authorName        String
+  authorEmail       String
+  authorType        AuthorType    @default(CLIENT)
+  message           String
+  timestampSeconds  Int
+  status            CommentStatus @default(OPEN)
+  resolvedAt        DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  video     Video           @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  delivery  Delivery        @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+  parent    ReviewComment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   ReviewComment[] @relation("CommentReplies")
+
+  @@index([videoId])
+  @@index([deliveryId])
+  @@index([parentId])
+  @@index([status])
+  @@index([commentCode])
+  @@map("review_comments")
+}
+
+model ProjectTimelineEvent {
+  id          String           @id @default(uuid()) @db.Uuid
+  projectId   String           @db.Uuid
+  eventType   ProjectEventType
+  title       String
+  description String?
+  metadata    Json?
+  actorId     String?          @db.Uuid
+  actorName   String
+  createdAt   DateTime         @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([eventType])
+  @@index([createdAt])
+  @@map("project_timeline_events")
+}
+
+model Model {
+  id        String      @id @default(uuid()) @db.Uuid
+  modelCode String      @unique
+  fullName  String
+  phone     String
+  whatsapp  String?
+  email     String?
+  photo     String?
+  status    ModelStatus @default(ACTIVE)
+  notes     String?
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  projectModels ProjectModel[]
+  shootAssignments ShootAssignment[]
+
+  @@index([status])
+  @@index([modelCode])
+  @@index([phone])
+  @@map("models")
+}
+
+model ProjectModel {
+  id            String        @id @default(uuid()) @db.Uuid
+  projectId     String        @db.Uuid
+  modelId       String        @db.Uuid
+  videosCount   Int           @default(1)
+  pricePerVideo Float         @default(0)
+  totalAmount   Float         @default(0)
+  paymentStatus PaymentStatus @default(PENDING)
+  notes         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  model   Model   @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, modelId])
+  @@index([projectId])
+  @@index([modelId])
+  @@index([paymentStatus])
+  @@map("project_models")
+}
+
+model Quote {
+  id         String      @id @default(uuid()) @db.Uuid
+  quoteCode  String      @unique
+  clientId   String      @db.Uuid
+  projectId  String?     @db.Uuid
+  status     QuoteStatus @default(DRAFT)
+  subtotal   Float       @default(0)
+  discount   Float       @default(0)
+  tax        Float       @default(0)
+  total      Float       @default(0)
+  notes      String?
+  validUntil DateTime?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+
+  client  Client      @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project Project?    @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  items   QuoteItem[]
+  invoice Invoice?
+
+  @@index([clientId])
+  @@index([projectId])
+  @@index([status])
+  @@index([quoteCode])
+  @@map("quotes")
+}
+
+model QuoteItem {
+  id          String @id @default(uuid()) @db.Uuid
+  quoteId     String @db.Uuid
+  description String
+  quantity    Int    @default(1)
+  unitPrice   Float  @default(0)
+  total       Float  @default(0)
+  order       Int    @default(0)
+  createdAt   DateTime @default(now())
+
+  quote Quote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([quoteId])
+  @@map("quote_items")
+}
+
+model Invoice {
+  id              String        @id @default(uuid()) @db.Uuid
+  invoiceCode     String        @unique
+  clientId        String        @db.Uuid
+  projectId       String?       @db.Uuid
+  quoteId         String?       @db.Uuid @unique
+  status          InvoiceStatus @default(DRAFT)
+  subtotal        Float         @default(0)
+  discount        Float         @default(0)
+  tax             Float         @default(0)
+  total           Float         @default(0)
+  paidAmount      Float         @default(0)
+  remainingAmount Float         @default(0)
+  issueDate       DateTime      @default(now())
+  dueDate         DateTime?
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  client   Client        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  project  Project?      @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  quote    Quote?        @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  items    InvoiceItem[]
+  payments Payment[]
+
+  @@index([clientId])
+  @@index([projectId])
+  @@index([quoteId])
+  @@index([status])
+  @@index([invoiceCode])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String @id @default(uuid()) @db.Uuid
+  invoiceId   String @db.Uuid
+  description String
+  quantity    Int    @default(1)
+  unitPrice   Float  @default(0)
+  total       Float  @default(0)
+  order       Int    @default(0)
+  createdAt   DateTime @default(now())
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@map("invoice_items")
+}
+
+model Payment {
+  id            String        @id @default(uuid()) @db.Uuid
+  paymentCode   String        @unique
+  invoiceId     String        @db.Uuid
+  amount        Float
+  paymentMethod PaymentMethod @default(CASH)
+  reference     String?
+  notes         String?
+  paidAt        DateTime      @default(now())
+  createdAt     DateTime      @default(now())
+
+  invoice Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([invoiceId])
+  @@index([paymentCode])
+  @@map("payments")
+}
+
+model TeamMember {
+  id            String           @id @default(uuid()) @db.Uuid
+  employeeCode  String           @unique
+  fullName      String
+  email         String           @unique
+  phone         String
+  photo         String?
+  role          TeamRole         @default(PHOTOGRAPHER)
+  status        TeamMemberStatus @default(ACTIVE)
+  joinDate      DateTime         @default(now())
+  notes         String?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  projectAssignments ProjectAssignment[]
+  shootAssignments   ShootAssignment[]
+  tasks              Task[]
+  taskComments       TaskComment[]
+
+  @@index([status])
+  @@index([role])
+  @@index([employeeCode])
+  @@index([email])
+  @@map("team_members")
+}
+
+model ProjectAssignment {
+  id            String   @id @default(uuid()) @db.Uuid
+  projectId     String   @db.Uuid
+  teamMemberId String   @db.Uuid
+  role          TeamRole @default(PHOTOGRAPHER)
+  assignedAt    DateTime @default(now())
+  completedAt   DateTime?
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  project    Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  teamMember TeamMember  @relation(fields: [teamMemberId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, teamMemberId])
+  @@index([projectId])
+  @@index([teamMemberId])
+  @@index([role])
+  @@map("project_assignments")
+}
+
+model Shoot {
+  id          String      @id @default(uuid()) @db.Uuid
+  shootCode   String      @unique
+  projectId   String      @db.Uuid
+  title       String
+  description String?
+  location    String?
+  date        DateTime
+  startTime   DateTime
+  endTime     DateTime
+  status      ShootStatus @default(SCHEDULED)
+  notes       String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  project    Project            @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignments ShootAssignment[]
+  tasks      Task[]
+
+  @@index([projectId])
+  @@index([status])
+  @@index([date])
+  @@index([shootCode])
+  @@map("shoots")
+}
+
+model ShootAssignment {
+  id            String    @id @default(uuid()) @db.Uuid
+  shootId       String    @db.Uuid
+  teamMemberId  String?   @db.Uuid
+  modelId       String?   @db.Uuid
+  role          String
+  createdAt     DateTime  @default(now())
+
+  shoot       Shoot       @relation(fields: [shootId], references: [id], onDelete: Cascade)
+  teamMember  TeamMember? @relation(fields: [teamMemberId], references: [id], onDelete: SetNull)
+  model       Model?      @relation(fields: [modelId], references: [id], onDelete: SetNull)
+
+  @@index([shootId])
+  @@index([teamMemberId])
+  @@index([modelId])
+  @@map("shoot_assignments")
+}
+
+model Task {
+  id             String       @id @default(uuid()) @db.Uuid
+  taskCode       String       @unique
+  projectId      String       @db.Uuid
+  shootId        String?      @db.Uuid
+  parentTaskId   String?      @db.Uuid
+  title          String
+  description    String?
+  status         TaskStatus   @default(TODO)
+  priority       TaskPriority @default(MEDIUM)
+  assignedTo     String?      @db.Uuid
+  estimatedHours Float        @default(0)
+  actualHours    Float        @default(0)
+  startDate      DateTime?
+  dueDate        DateTime
+  completedAt    DateTime?
+  progress       Int          @default(0)
+  order          Int          @default(0)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  project      Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  shoot        Shoot?           @relation(fields: [shootId], references: [id], onDelete: SetNull)
+  parentTask   Task?            @relation("TaskSubtasks", fields: [parentTaskId], references: [id], onDelete: Cascade)
+  subtasks     Task[]           @relation("TaskSubtasks")
+  assignee     TeamMember?      @relation(fields: [assignedTo], references: [id], onDelete: SetNull)
+  checklists   TaskChecklist[]
+  comments     TaskComment[]
+  attachments  TaskAttachment[]
+
+  @@index([projectId])
+  @@index([shootId])
+  @@index([parentTaskId])
+  @@index([assignedTo])
+  @@index([status])
+  @@index([priority])
+  @@index([taskCode])
+  @@index([dueDate])
+  @@map("tasks")
+}
+
+model TaskChecklist {
+  id        String   @id @default(uuid()) @db.Uuid
+  taskId    String   @db.Uuid
+  title     String
+  completed Boolean  @default(false)
+  order     Int      @default(0)
+  createdAt DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@map("task_checklists")
+}
+
+model TaskComment {
+  id        String   @id @default(uuid()) @db.Uuid
+  taskId    String   @db.Uuid
+  authorId  String   @db.Uuid
+  content   String
+  createdAt DateTime @default(now())
+
+  task  Task       @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author TeamMember @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@index([authorId])
+  @@map("task_comments")
+}
+
+model TaskAttachment {
+  id         String   @id @default(uuid()) @db.Uuid
+  taskId     String   @db.Uuid
+  fileName   String
+  storageKey String
+  mime       String
+  size       BigInt
+  createdAt  DateTime @default(now())
+
+  task Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+  @@map("task_attachments")
+}
+
+model ActivityLog {
+  id        String       @id @default(uuid()) @db.Uuid
+  userId    String       @db.Uuid
+  type      ActivityType
+  entity    String
+  entityId   String
+  metadata   Json?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([type])
+  @@index([entity, entityId])
+  @@map("activity_logs")
+}
