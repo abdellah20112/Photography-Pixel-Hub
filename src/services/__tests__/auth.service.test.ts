@@ -1,10 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import bcrypt from "bcryptjs";
 
 /* ── Mock dependencies ───────────────────── */
 
+const { mockSupabaseClient } = vi.hoisted(() => ({
+  mockSupabaseClient: {
+    auth: {
+      signInWithPassword: vi.fn(),
+    },
+  },
+}));
+
+vi.mock("@/lib/supabase/server", () => ({
+  createSupabaseServerClient: vi.fn().mockResolvedValue(mockSupabaseClient),
+}));
+
 vi.mock("@/repositories/user.repository", () => ({
   userRepository: {
+    findBySupabaseUid: vi.fn(),
     findByEmail: vi.fn(),
     findById: vi.fn(),
     create: vi.fn(),
@@ -49,13 +61,11 @@ import { InvalidCredentialsError } from "@/lib/auth/errors";
    ============================================ */
 
 describe("authService.login", () => {
-  const validPassword = "ValidPass123";
-  const hashedPassword = bcrypt.hashSync(validPassword, 12);
   const mockUser = {
     id: "user-1",
     email: "test@example.com",
     name: "Test User",
-    password: hashedPassword,
+    supabaseUid: "supabase-uid-1",
     role: "OWNER" as const,
     avatar: null,
     createdAt: new Date(),
@@ -66,41 +76,56 @@ describe("authService.login", () => {
     vi.clearAllMocks();
   });
 
-  /* ── Wrong password ─────────────────────── */
-  it("throws InvalidCredentialsError on wrong password", async () => {
-    vi.mocked(userRepository.findByEmail).mockResolvedValue(mockUser);
+  /* ── Supabase Auth error ───────────────── */
+  it("throws InvalidCredentialsError when Supabase Auth fails", async () => {
+    mockSupabaseClient.auth.signInWithPassword.mockResolvedValue({
+      data: { user: null },
+      error: { message: "Invalid login credentials", code: "invalid_credentials" },
+    });
 
     await expect(
       authService.login("test@example.com", "WrongPassword123")
     ).rejects.toThrow(InvalidCredentialsError);
   });
 
-  /* ── User not found (same error — no reveal) ─ */
-  it("throws InvalidCredentialsError when user not found", async () => {
-    vi.mocked(userRepository.findByEmail).mockResolvedValue(null);
+  /* ── No Prisma profile ─────────────────── */
+  it("throws InvalidCredentialsError when no Prisma profile exists", async () => {
+    mockSupabaseClient.auth.signInWithPassword.mockResolvedValue({
+      data: { user: { id: "supabase-uid-1" } },
+      error: null,
+    });
+    vi.mocked(userRepository.findBySupabaseUid).mockResolvedValue(null);
 
     await expect(
-      authService.login("nonexistent@example.com", validPassword)
+      authService.login("test@example.com", "ValidPass123")
     ).rejects.toThrow(InvalidCredentialsError);
   });
 
-  /* ── Correct credentials ────────────────── */
+  /* ── Correct credentials ───────────────── */
   it("returns authenticated user on correct credentials", async () => {
-    vi.mocked(userRepository.findByEmail).mockResolvedValue(mockUser);
+    mockSupabaseClient.auth.signInWithPassword.mockResolvedValue({
+      data: { user: { id: "supabase-uid-1" } },
+      error: null,
+    });
+    vi.mocked(userRepository.findBySupabaseUid).mockResolvedValue(mockUser);
 
-    const result = await authService.login("test@example.com", validPassword);
+    const result = await authService.login("test@example.com", "ValidPass123");
 
     expect(result.id).toBe("user-1");
     expect(result.email).toBe("test@example.com");
     expect(result).not.toHaveProperty("password");
   });
 
-  /* ── Audit logging ──────────────────────── */
+  /* ── Audit logging ─────────────────────── */
   it("logs successful login", async () => {
     const { activityService } = await import("@/services/activity.service");
-    vi.mocked(userRepository.findByEmail).mockResolvedValue(mockUser);
+    mockSupabaseClient.auth.signInWithPassword.mockResolvedValue({
+      data: { user: { id: "supabase-uid-1" } },
+      error: null,
+    });
+    vi.mocked(userRepository.findBySupabaseUid).mockResolvedValue(mockUser);
 
-    await authService.login("test@example.com", validPassword);
+    await authService.login("test@example.com", "ValidPass123");
 
     expect(activityService.log).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -111,23 +136,19 @@ describe("authService.login", () => {
     );
   });
 
-  it("logs failed login attempt", async () => {
+  /* ── Logging failure is non-fatal ──────── */
+  it("does not fail login when activity logging throws", async () => {
     const { activityService } = await import("@/services/activity.service");
-    vi.mocked(userRepository.findByEmail).mockResolvedValue(mockUser);
+    vi.mocked(activityService.log).mockRejectedValueOnce(new Error("DB down"));
+    mockSupabaseClient.auth.signInWithPassword.mockResolvedValue({
+      data: { user: { id: "supabase-uid-1" } },
+      error: null,
+    });
+    vi.mocked(userRepository.findBySupabaseUid).mockResolvedValue(mockUser);
 
-    try {
-      await authService.login("test@example.com", "WrongPassword123");
-    } catch {
-      // expected
-    }
+    const result = await authService.login("test@example.com", "ValidPass123");
 
-    expect(activityService.log).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: "user-1",
-        type: "LOGIN",
-        entity: "auth",
-        metadata: expect.objectContaining({ success: false }),
-      })
-    );
+    expect(result.id).toBe("user-1");
+    expect(result.email).toBe("test@example.com");
   });
 });

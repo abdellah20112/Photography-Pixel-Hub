@@ -62,18 +62,22 @@ export const authService = {
     // Success — clear rate limit
     clearRateLimit(rateLimitKey);
 
-    // Log successful login
-    await activityService.log({
-      userId: user.id,
-      type: "LOGIN",
-      entity: "auth",
-      entityId: user.id,
-      metadata: {
-        success: true,
-        ip: options?.ip,
-        userAgent: options?.userAgent,
-      },
-    });
+    // Log successful login (non-fatal — don't fail login if logging fails)
+    try {
+      await activityService.log({
+        userId: user.id,
+        type: "LOGIN",
+        entity: "auth",
+        entityId: user.id,
+        metadata: {
+          success: true,
+          ip: options?.ip,
+          userAgent: options?.userAgent,
+        },
+      });
+    } catch {
+      // Logging is non-critical — swallow errors
+    }
 
     return {
       id: user.id,
