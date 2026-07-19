@@ -1,10 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { jwtVerify } from "jose";
-
-import { SESSION_COOKIE_NAME, SESSION_ALG } from "@/lib/auth/config";
+import { createServerClient } from "@supabase/ssr";
 
 /* ============================================
    Proxy (Next.js 16 — formerly "middleware")
+   - Refreshes Supabase Auth session
    - Sets security headers on all responses
    - Protects /dashboard (redirects to /login)
    - Prevents authenticated users from /login
@@ -15,26 +14,6 @@ const PROTECTED_PREFIXES = ["/dashboard"];
 
 /** Routes blocked for authenticated users. */
 const AUTH_ROUTES = ["/login"];
-
-function getSecret(): Uint8Array {
-  const secret = process.env.AUTH_SECRET;
-  if (!secret) {
-    throw new Error("AUTH_SECRET environment variable is required");
-  }
-  return new TextEncoder().encode(secret);
-}
-
-async function verifySession(request: NextRequest): Promise<boolean> {
-  const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
-  if (!token) return false;
-
-  try {
-    await jwtVerify(token, getSecret(), { algorithms: [SESSION_ALG] });
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 /** Apply security headers to any response (including redirects). */
 function setSecurityHeaders(response: NextResponse): void {
@@ -75,34 +54,53 @@ function setSecurityHeaders(response: NextResponse): void {
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  let response = NextResponse.next({ request });
+
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll() {
+          return request.cookies.getAll();
+        },
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            request.cookies.set(name, value);
+            response.cookies.set(name, value, options);
+          });
+        },
+      },
+    }
+  );
+
+  // Refresh the Supabase session and check auth state
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   const isProtectedRoute = PROTECTED_PREFIXES.some((p) =>
     pathname.startsWith(p)
   );
   const isAuthRoute = AUTH_ROUTES.some((p) => pathname === p);
 
-  // Only verify session for routes that need auth checks
-  if (isProtectedRoute || isAuthRoute) {
-    const isAuthenticated = await verifySession(request);
-
-    // Unauthenticated → redirect to login
-    if (isProtectedRoute && !isAuthenticated) {
-      const loginUrl = new URL("/login", request.url);
-      loginUrl.searchParams.set("redirect", pathname);
-      const redirect = NextResponse.redirect(loginUrl);
-      setSecurityHeaders(redirect);
-      return redirect;
-    }
-
-    // Authenticated → redirect away from login
-    if (isAuthRoute && isAuthenticated) {
-      const dashboardUrl = new URL("/dashboard", request.url);
-      const redirect = NextResponse.redirect(dashboardUrl);
-      setSecurityHeaders(redirect);
-      return redirect;
-    }
+  // Unauthenticated → redirect to login
+  if (isProtectedRoute && !user) {
+    const loginUrl = new URL("/login", request.url);
+    loginUrl.searchParams.set("redirect", pathname);
+    const redirect = NextResponse.redirect(loginUrl);
+    setSecurityHeaders(redirect);
+    return redirect;
   }
 
-  const response = NextResponse.next();
+  // Authenticated → redirect away from login
+  if (isAuthRoute && user) {
+    const dashboardUrl = new URL("/dashboard", request.url);
+    const redirect = NextResponse.redirect(dashboardUrl);
+    setSecurityHeaders(redirect);
+    return redirect;
+  }
+
   setSecurityHeaders(response);
   return response;
 }

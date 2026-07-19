@@ -1,6 +1,6 @@
 "use server";
 
-import bcrypt from "bcryptjs";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { userRepository } from "@/repositories/user.repository";
 import { getCurrentUser } from "@/lib/auth/session";
 import type { UserRole } from "@prisma/client";
@@ -24,6 +24,8 @@ export const bootstrapService = {
 
   /**
    * Create the first OWNER account.
+   * Creates the user in Supabase Auth, then creates
+   * the corresponding Prisma profile.
    * Throws if an OWNER already exists.
    */
   async createOwner(params: {
@@ -46,14 +48,27 @@ export const bootstrapService = {
       return { success: false, error: "البريد الإلكتروني مستخدم بالفعل" };
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(params.password, 12);
+    // Create user in Supabase Auth
+    const supabaseAdmin = createSupabaseAdminClient();
+    const { data, error } = await supabaseAdmin.auth.admin.createUser({
+      email: params.email.trim().toLowerCase(),
+      password: params.password,
+      email_confirm: true,
+      user_metadata: { name: params.name.trim(), role: "OWNER" },
+    });
 
-    // Create OWNER
+    if (error || !data.user) {
+      return {
+        success: false,
+        error: "فشل في إنشاء الحساب. يرجى المحاولة مرة أخرى.",
+      };
+    }
+
+    // Create OWNER profile in Prisma
     await userRepository.create({
       email: params.email.trim().toLowerCase(),
       name: params.name.trim(),
-      password: hashedPassword,
+      supabaseUid: data.user.id,
       role: "OWNER" as UserRole,
     });
 

@@ -1,12 +1,5 @@
-import { cookies } from "next/headers";
-import { SignJWT, jwtVerify } from "jose";
-
-import {
-  SESSION_COOKIE_NAME,
-  SESSION_ALG,
-  SESSION_MAX_AGE,
-  cookieOptions,
-} from "@/lib/auth/config";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { userRepository } from "@/repositories/user.repository";
 import {
   UnauthorizedError,
   ExpiredSessionError,
@@ -16,124 +9,52 @@ import type { SessionUser, UserRole } from "@/types/auth";
 
 /* ============================================
    Session Utilities
-   JWT-based session management using jose.
-   Works in both Node.js and Edge runtimes.
+   Supabase Auth-based session management.
+   Supabase manages the session cookies; we read
+   the session and fetch the Prisma user profile.
    ============================================ */
-
-function getSecret(): Uint8Array {
-  const secret = process.env.AUTH_SECRET;
-  if (!secret) {
-    throw new Error("AUTH_SECRET environment variable is required");
-  }
-  return new TextEncoder().encode(secret);
-}
-
-/** JWT payload shape (internal). */
-type SessionPayload = {
-  sub: string;
-  email: string;
-  name: string;
-  role: UserRole;
-  avatar?: string | null;
-  iat: number;
-  exp: number;
-};
-
-/**
- * Create a signed session JWT and set it as an httpOnly cookie.
- * Call this after successful authentication.
- */
-export async function createSession(user: {
-  id: string;
-  email: string;
-  name: string;
-  role: UserRole;
-  avatar?: string | null;
-}): Promise<void> {
-  const token = await new SignJWT({
-    sub: user.id,
-    email: user.email,
-    name: user.name,
-    role: user.role,
-    avatar: user.avatar ?? null,
-  })
-    .setProtectedHeader({ alg: SESSION_ALG })
-    .setIssuedAt()
-    .setExpirationTime(`${SESSION_MAX_AGE}s`)
-    .sign(getSecret());
-
-  const store = await cookies();
-  store.set(SESSION_COOKIE_NAME, token, cookieOptions);
-}
-
-/**
- * Verify and decode the session JWT from the cookie.
- * Returns `null` if no session exists or the token is invalid.
- */
-export async function getSession(): Promise<SessionUser> {
-  const store = await cookies();
-  const token = store.get(SESSION_COOKIE_NAME)?.value;
-
-  if (!token) return null;
-
-  try {
-    const { payload } = await jwtVerify(token, getSecret(), {
-      algorithms: [SESSION_ALG],
-    });
-
-    return {
-      id: payload.sub as string,
-      email: payload.email as string,
-      name: payload.name as string,
-      role: payload.role as UserRole,
-      avatar: (payload.avatar as string | null) ?? null,
-    };
-  } catch {
-    // Token is expired, malformed, or signature mismatch
-    return null;
-  }
-}
 
 /**
  * Get the currently authenticated user.
- * Returns `null` if not authenticated — does not throw.
+ *
+ * Reads the Supabase session, then fetches the
+ * corresponding Prisma User profile by supabaseUid.
+ * Returns `null` if not authenticated.
  */
 export async function getCurrentUser(): Promise<SessionUser> {
-  return getSession();
+  const supabase = await createSupabaseServerClient();
+
+  const {
+    data: { user: supabaseUser },
+  } = await supabase.auth.getUser();
+
+  if (!supabaseUser) return null;
+
+  const user = await userRepository.findBySupabaseUid(supabaseUser.id);
+
+  if (!user) return null;
+
+  return {
+    id: user.id,
+    email: user.email,
+    name: user.name,
+    role: user.role,
+    avatar: user.avatar,
+  };
 }
 
 /**
- * Require an authenticated user. Throws `UnauthorizedError` if
- * no valid session exists, or `ExpiredSessionError` if the
- * session token is present but expired.
+ * Require an authenticated user.
+ * Throws `UnauthorizedError` if no valid session exists.
  */
 export async function requireUser(): Promise<NonNullable<SessionUser>> {
-  const store = await cookies();
-  const token = store.get(SESSION_COOKIE_NAME)?.value;
+  const user = await getCurrentUser();
 
-  if (!token) {
+  if (!user) {
     throw new UnauthorizedError();
   }
 
-  try {
-    const { payload } = await jwtVerify(token, getSecret(), {
-      algorithms: [SESSION_ALG],
-    });
-
-    return {
-      id: payload.sub as string,
-      email: payload.email as string,
-      name: payload.name as string,
-      role: payload.role as UserRole,
-      avatar: (payload.avatar as string | null) ?? null,
-    };
-  } catch (err) {
-    // Distinguish expired token from other errors
-    if (err instanceof Error && err.name === "JWTExpired") {
-      throw new ExpiredSessionError();
-    }
-    throw new UnauthorizedError();
-  }
+  return user;
 }
 
 /**
@@ -154,9 +75,24 @@ export async function requireRole(
 }
 
 /**
- * Destroy the session by deleting the session cookie.
+ * @deprecated Supabase Auth manages the session automatically
+ * via `signInWithPassword()`. This function is kept as a no-op
+ * for backward compatibility with code that still imports it.
+ */
+export async function createSession(_user: {
+  id: string;
+  email: string;
+  name: string;
+  role: UserRole;
+  avatar?: string | null;
+}): Promise<void> {
+  // No-op — Supabase Auth manages session creation
+}
+
+/**
+ * Destroy the session by signing out of Supabase Auth.
  */
 export async function destroySession(): Promise<void> {
-  const store = await cookies();
-  store.delete(SESSION_COOKIE_NAME);
+  const supabase = await createSupabaseServerClient();
+  await supabase.auth.signOut();
 }

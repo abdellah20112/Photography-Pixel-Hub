@@ -1,10 +1,8 @@
-import bcrypt from "bcryptjs";
-
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { userRepository } from "@/repositories/user.repository";
 import { activityService } from "@/services/activity.service";
-import { createSession, destroySession } from "@/lib/auth/session";
+import { destroySession } from "@/lib/auth/session";
 import { checkRateLimit, recordFailedAttempt, clearRateLimit } from "@/lib/auth/rate-limit";
-import { DUMMY_HASH } from "@/lib/auth/config";
 import {
   InvalidCredentialsError,
   RateLimitExceededError,
@@ -14,17 +12,17 @@ import type { AuthenticatedUser } from "@/types/auth";
 /* ============================================
    Auth Service
    Business logic for authentication flows.
-   Uses userRepository for DB access and
-   activityService for audit logging.
+   Uses Supabase Auth for credential verification
+   and session management. Prisma User table
+   stores profile information only.
    ============================================ */
 
 export const authService = {
   /**
-   * Authenticate a user with email and password.
+   * Authenticate a user with email and password via Supabase Auth.
    *
    * Security measures:
    * - Rate limited per IP
-   * - Timing attack prevention (always runs bcrypt.compare)
    * - Does not reveal whether email exists
    * - Logs all attempts to audit log
    *
@@ -40,44 +38,29 @@ export const authService = {
 
     checkRateLimit(rateLimitKey);
 
-    const user = await userRepository.findByEmail(email);
+    const supabase = await createSupabaseServerClient();
 
-    // Always run bcrypt.compare — even if user not found —
-    // to prevent timing attacks that reveal email existence.
-    const hashToCompare = user?.password ?? DUMMY_HASH;
-    const isValid = await bcrypt.compare(password, hashToCompare);
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-    if (!user || !isValid) {
+    if (error || !data.user) {
       recordFailedAttempt(rateLimitKey);
-
-      // Log failed login attempt (without revealing whether email exists)
-      if (user) {
-        await activityService.log({
-          userId: user.id,
-          type: "LOGIN",
-          entity: "auth",
-          entityId: user.id,
-          metadata: {
-            success: false,
-            ip: options?.ip,
-            userAgent: options?.userAgent,
-          },
-        });
-      }
-
       throw new InvalidCredentialsError();
     }
 
-    // Success — clear rate limit and create session
-    clearRateLimit(rateLimitKey);
+    // Fetch Prisma profile by Supabase Auth UID
+    const user = await userRepository.findBySupabaseUid(data.user.id);
 
-    await createSession({
-      id: user.id,
-      email: user.email,
-      name: user.name,
-      role: user.role,
-      avatar: user.avatar,
-    });
+    if (!user) {
+      // Supabase auth succeeded but no Prisma profile exists
+      recordFailedAttempt(rateLimitKey);
+      throw new InvalidCredentialsError();
+    }
+
+    // Success — clear rate limit
+    clearRateLimit(rateLimitKey);
 
     // Log successful login
     await activityService.log({
@@ -102,7 +85,7 @@ export const authService = {
   },
 
   /**
-   * Log out the current user by destroying the session
+   * Log out the current user by signing out of Supabase Auth
    * and logging the event.
    */
   async logout(userId?: string): Promise<void> {

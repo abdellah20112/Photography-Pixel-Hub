@@ -22,6 +22,10 @@ export const userRepository = {
     return prisma.user.findUnique({ where: { email } });
   },
 
+  findBySupabaseUid(supabaseUid: string) {
+    return prisma.user.findUnique({ where: { supabaseUid } });
+  },
+
   create(data: UserCreateInput) {
     return prisma.user.create({ data });
   },

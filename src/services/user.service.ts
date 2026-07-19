@@ -1,9 +1,12 @@
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { userRepository } from "@/repositories/user.repository";
 import type { UserRole } from "@prisma/client";
 
 /* ============================================
    User Service
    Business logic layer — calls repositories only.
+   User creation goes through Supabase Auth first,
+   then creates the Prisma profile.
    ============================================ */
 
 export const userService = {
@@ -22,10 +25,24 @@ export const userService = {
     role?: UserRole;
     avatar?: string;
   }) {
+    // Create user in Supabase Auth
+    const supabaseAdmin = createSupabaseAdminClient();
+    const { data: authData, error } = await supabaseAdmin.auth.admin.createUser({
+      email: data.email,
+      password: data.password,
+      email_confirm: true,
+      user_metadata: { name: data.name, role: data.role ?? "PHOTOGRAPHER" },
+    });
+
+    if (error || !authData.user) {
+      throw new Error(`Failed to create Supabase Auth user: ${error?.message}`);
+    }
+
+    // Create Prisma profile
     return userRepository.create({
       email: data.email,
       name: data.name,
-      password: data.password,
+      supabaseUid: authData.user.id,
       role: data.role ?? "PHOTOGRAPHER",
       avatar: data.avatar,
     });
@@ -34,7 +51,6 @@ export const userService = {
   async update(id: string, data: {
     name?: string;
     email?: string;
-    password?: string;
     avatar?: string;
   }) {
     return userRepository.update(id, data);

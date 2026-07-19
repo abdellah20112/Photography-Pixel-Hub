@@ -238,19 +238,20 @@ enum ProjectEventType {
 // ============================================
 
 model User {
-  id        String   @id @default(uuid()) @db.Uuid
-  email     String   @unique
-  name      String
-  password  String
-  role      UserRole @default(PHOTOGRAPHER)
-  avatar    String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(uuid()) @db.Uuid
+  email       String   @unique
+  name        String
+  supabaseUid String?  @unique @db.Uuid
+  role        UserRole @default(PHOTOGRAPHER)
+  avatar      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   clients      Client[]
   activityLogs ActivityLog[]
 
   @@index([email])
+  @@index([supabaseUid])
   @@map("users")
 }
 

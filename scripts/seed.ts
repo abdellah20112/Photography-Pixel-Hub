@@ -1,10 +1,14 @@
+import { config } from "dotenv";
+config({ path: ".env.local" });
+
 import { PrismaClient, UserRole, ProjectStatus } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
-import bcrypt from "bcryptjs";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /* ============================================
    Prisma Seed Script
-   Creates: Owner user → Demo client → Demo project
+   Creates: Owner user (Supabase Auth + Prisma)
+            → Demo client → Demo project
    ============================================ */
 
 const adapter = new PrismaPg({
@@ -16,25 +20,56 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
   console.log("🌱 Seeding database...\n");
 
-  const hashedPassword = await bcrypt.hash("Owner@123", 12);
+  const supabaseAdmin = createSupabaseAdminClient();
 
-  // 1. Create owner user
+  // 1. Create owner user in Supabase Auth
+  const { data: authData, error: authError } = await supabaseAdmin.auth.admin
+    .createUser({
+      email: "owner@pixelpixel.hub",
+      password: "Owner@123",
+      email_confirm: true,
+      user_metadata: { name: "Owner", role: "OWNER" },
+    });
+
+  let supabaseUid: string;
+
+  if (authError) {
+    // User might already exist in Supabase Auth — try to find by email
+    const { data: existingUser, error: lookupError } = await supabaseAdmin.auth
+      .admin.listUsers();
+
+    if (lookupError) {
+      throw new Error(`Failed to create or find Supabase Auth user: ${authError.message}`);
+    }
+
+    const found = existingUser.users.find((u) => u.email === "owner@pixelpixel.hub");
+    if (!found) {
+      throw new Error(`Failed to create Supabase Auth user: ${authError.message}`);
+    }
+    supabaseUid = found.id;
+    console.log("  ℹ Owner already exists in Supabase Auth");
+  } else {
+    supabaseUid = authData.user.id;
+    console.log("  ✓ Owner created in Supabase Auth");
+  }
+
+  // 2. Upsert Prisma profile
   const owner = await prisma.user.upsert({
     where: { email: "owner@pixelpixel.hub" },
     update: {
-      password: hashedPassword,
+      supabaseUid,
       role: UserRole.OWNER,
     },
     create: {
       email: "owner@pixelpixel.hub",
       name: "Owner",
-      password: hashedPassword,
+      supabaseUid,
       role: UserRole.OWNER,
     },
   });
-  console.log(`  ✓ Owner user: ${owner.email} (${owner.id})`);
+  console.log(`  ✓ Owner profile: ${owner.email} (${owner.id})`);
 
-  // 2. Create demo client
+  // 3. Create demo client
   const client = await prisma.client.upsert({
     where: { token: "demo-client-token-00000000" },
     update: {},
@@ -50,7 +85,7 @@ async function main() {
   });
   console.log(`  ✓ Demo client: ${client.email} (${client.id})`);
 
-  // 3. Create demo project
+  // 4. Create demo project
   const project = await prisma.project.upsert({
     where: { token: "demo-project-token-00000000" },
     update: {},

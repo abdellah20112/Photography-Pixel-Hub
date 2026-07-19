@@ -1,13 +1,14 @@
 "use server";
 
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { userRepository } from "@/repositories/user.repository";
-import { createSession } from "@/lib/auth/session";
 import { registerSchema } from "@/lib/validations/auth";
 import type { AuthenticatedUser } from "@/types/auth";
 
 /* ============================================
-   Register Server Action — Stabilization stub
-   To be fully implemented in a future sprint.
+   Register Server Action
+   Creates a new user in Supabase Auth, then
+   creates the corresponding Prisma profile.
    ============================================ */
 
 export type RegisterState = {
@@ -38,24 +39,34 @@ export async function registerAction(
 
   const { name, email, password } = parsed.data;
 
+  // Check if email is already registered in Prisma
   const existing = await userRepository.findByEmail(email);
   if (existing) {
     return { success: false, error: "البريد الإلكتروني مستخدم بالفعل" };
   }
 
+  // Create user in Supabase Auth
+  const supabaseAdmin = createSupabaseAdminClient();
+  const { data, error } = await supabaseAdmin.auth.admin.createUser({
+    email,
+    password,
+    email_confirm: true,
+    user_metadata: { name },
+  });
+
+  if (error || !data.user) {
+    return {
+      success: false,
+      error: "فشل في إنشاء الحساب. يرجى المحاولة مرة أخرى.",
+    };
+  }
+
+  // Create Prisma profile linked to Supabase Auth user
   const user = await userRepository.create({
     email,
     name,
-    password,
+    supabaseUid: data.user.id,
     role: "PHOTOGRAPHER",
-  });
-
-  await createSession({
-    id: user.id,
-    email: user.email,
-    name: user.name,
-    role: user.role,
-    avatar: user.avatar,
   });
 
   return {
