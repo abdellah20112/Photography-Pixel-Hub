@@ -1,14 +1,9 @@
-import { BRANDING } from "@/config/branding";
+import { redirect } from "next/navigation";
 
-export default function HomePage() {
-  return (
-    <main className="flex min-h-dvh flex-col items-center justify-center gap-6 p-8 text-center">
-      <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
-        {BRANDING.companyName}
-      </h1>
-      <p className="max-w-md text-muted-foreground sm:text-lg">
-        {BRANDING.metadata.description}
-      </p>
-    </main>
-  );
+import { getCurrentUser } from "@/lib/auth/session";
+import { ROUTES } from "@/lib/constants/routes";
+
+export default async function HomePage() {
+  const user = await getCurrentUser();
+  redirect(user ? ROUTES.DASHBOARD : ROUTES.LOGIN);
 }

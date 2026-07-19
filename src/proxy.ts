@@ -4,7 +4,7 @@ import { jwtVerify } from "jose";
 import { SESSION_COOKIE_NAME, SESSION_ALG } from "@/lib/auth/config";
 
 /* ============================================
-   Middleware
+   Proxy (Next.js 16 — formerly "middleware")
    - Sets security headers on all responses
    - Protects /dashboard (redirects to /login)
    - Prevents authenticated users from /login
@@ -72,7 +72,7 @@ function setSecurityHeaders(response: NextResponse): void {
   );
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   const isProtectedRoute = PROTECTED_PREFIXES.some((p) =>
