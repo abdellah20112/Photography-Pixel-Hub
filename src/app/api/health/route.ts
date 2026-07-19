@@ -8,6 +8,8 @@ import { storageService } from "@/lib/storage/storage.service";
    Verifies: Database, Storage, Auth config.
    ============================================ */
 
+export const maxDuration = 10;
+
 export async function GET() {
   const checks = {
     database: false,

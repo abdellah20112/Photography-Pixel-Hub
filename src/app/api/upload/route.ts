@@ -4,6 +4,8 @@ import { getCurrentUser } from "@/lib/auth/session";
 import { storageService } from "@/lib/storage/storage.service";
 import { generateStorageKey, getMimeType, getExtension, validateVideoFile } from "@/lib/video/metadata";
 
+export const maxDuration = 60;
+
 /* ============================================
    Upload API Route
    Handles multipart video uploads via StorageService.
