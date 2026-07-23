@@ -15,7 +15,7 @@ export type ClientTableRow = {
   name: string;
   company: string | null;
   phone: string | null;
-  email: string;
+  email: string | null;
   notes: string | null;
   status: Client["status"];
   archivedAt: Date | null;

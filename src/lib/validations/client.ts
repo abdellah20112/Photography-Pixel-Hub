@@ -1,13 +1,13 @@
 import { z } from "zod";
 
-import { emailSchema, nameSchema, phoneSchema } from "./auth";
+import { emailSchema, nameSchema, moroccanPhoneSchema } from "./auth";
 
 /* ============================================
    Client Validation Schemas
    Arabic validation messages.
    ============================================ */
 
-/* ── Enum-like schemas ───────────────────── */
+/* ── Enum-like schemas ─────────────────────────── */
 
 export const clientStatusSchema = z.enum(["ACTIVE", "ARCHIVED", "BLOCKED"]);
 
@@ -15,7 +15,14 @@ export const clientFilterSchema = z.enum(["all", "active", "archived", "blocked"
 
 export const clientSortSchema = z.enum(["newest", "oldest", "alphabetical"]);
 
-/* ── Create / Update ─────────────────────── */
+/* ── Create / Update ────────────────────────────── */
+
+/** Email is optional — not all walk-in clients have email. */
+const optionalEmailSchema = z
+  .string()
+  .email("البريد الإلكتروني غير صالح")
+  .optional()
+  .or(z.literal(""));
 
 export const createClientSchema = z.object({
   name: nameSchema,
@@ -24,8 +31,8 @@ export const createClientSchema = z.object({
     .max(100, "اسم الشركة يجب أن يكون 100 حرف كحد أقصى")
     .optional()
     .or(z.literal("")),
-  email: emailSchema,
-  phone: phoneSchema,
+  email: optionalEmailSchema,
+  phone: moroccanPhoneSchema,
   notes: z
     .string()
     .max(1000, "الملاحظات يجب أن تكون 1000 حرف كحد أقصى")
@@ -41,8 +48,8 @@ export const updateClientSchema = z.object({
     .max(100, "اسم الشركة يجب أن يكون 100 حرف كحد أقصى")
     .optional()
     .or(z.literal("")),
-  email: emailSchema,
-  phone: phoneSchema,
+  email: optionalEmailSchema,
+  phone: moroccanPhoneSchema,
   notes: z
     .string()
     .max(1000, "الملاحظات يجب أن تكون 1000 حرف كحد أقصى")
@@ -51,7 +58,7 @@ export const updateClientSchema = z.object({
   status: clientStatusSchema,
 });
 
-/* ── Query / List ────────────────────────── */
+/* ── Query / List ────────────────────────────────── */
 
 export const clientQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -64,7 +71,7 @@ export const clientQuerySchema = z.object({
   sort: clientSortSchema.optional(),
 });
 
-/* ── Types ───────────────────────────────── */
+/* ── Types ─────────────────────────────────────────── */
 
 export type CreateClientInput = z.infer<typeof createClientSchema>;
 export type UpdateClientInput = z.infer<typeof updateClientSchema>;

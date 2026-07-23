@@ -38,7 +38,7 @@ async function generateUniqueClientCode(): Promise<string> {
 function normalizeInput(data: {
   name: string;
   company?: string;
-  email: string;
+  email?: string;
   phone?: string;
   notes?: string;
   status?: ClientStatus;
@@ -46,7 +46,7 @@ function normalizeInput(data: {
   return {
     name: data.name.trim(),
     company: data.company?.trim() || null,
-    email: data.email.trim().toLowerCase(),
+    email: data.email?.trim() || null,
     phone: data.phone?.trim() || null,
     notes: data.notes?.trim() || null,
     status: data.status ?? ("ACTIVE" as ClientStatus),
@@ -67,7 +67,7 @@ export const clientService = {
       userId: string;
       name: string;
       company?: string;
-      email: string;
+      email?: string;
       phone?: string;
       notes?: string;
       status?: ClientStatus;
@@ -104,7 +104,7 @@ export const clientService = {
     data: {
       name: string;
       company?: string;
-      email: string;
+      email?: string;
       phone?: string;
       notes?: string;
       status?: ClientStatus;

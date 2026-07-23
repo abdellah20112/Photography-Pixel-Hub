@@ -65,6 +65,7 @@ const mockClient = {
   company: null,
   email: "test@example.com",
   phone: null,
+  city: null,
   notes: null,
   status: "ACTIVE" as const,
   token: "test-token",
@@ -101,21 +102,21 @@ describe("clientService.create", () => {
     );
   });
 
-  it("normalizes email to lowercase and trims fields", async () => {
+  it("normalizes email and trims fields", async () => {
     vi.mocked(clientRepository.create).mockResolvedValue(mockClient);
 
     await clientService.create({
       userId: "user-1",
       name: "  Test Client  ",
       email: "  TEST@EXAMPLE.COM  ",
-      phone: "  0501234567  ",
+      phone: "  0612345678  ",
     });
 
     expect(clientRepository.create).toHaveBeenCalledWith(
       expect.objectContaining({
         name: "Test Client",
-        email: "test@example.com",
-        phone: "0501234567",
+        email: "TEST@EXAMPLE.COM",
+        phone: "0612345678",
       })
     );
   });

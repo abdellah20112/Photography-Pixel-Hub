@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2, Eye, EyeOff, Video } from "lucide-react";
 
@@ -68,7 +68,6 @@ export function DeliveryFormModal({
   const [submitting, setSubmitting] = useState(false);
   const [projects, setProjects] = useState<ProjectOption[]>([]);
   const [videos, setVideos] = useState<VideoOption[]>([]);
-  const [selectedProject, setSelectedProject] = useState<string>("");
   const [selectedVideos, setSelectedVideos] = useState<string[]>([]);
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
@@ -78,7 +77,7 @@ export function DeliveryFormModal({
     register,
     handleSubmit,
     reset,
-    watch,
+    control,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(isEdit ? updateDeliverySchema : createDeliverySchema) as never,
@@ -95,7 +94,8 @@ export function DeliveryFormModal({
     },
   });
 
-  const watchProjectId = watch("projectId");
+  const watchProjectId = useWatch({ control, name: "projectId" });
+  const watchPasswordProtected = useWatch({ control, name: "passwordProtected" });
 
   // Fetch projects
   useEffect(() => {
@@ -115,10 +115,7 @@ export function DeliveryFormModal({
 
   // Fetch videos when project changes
   useEffect(() => {
-    if (!watchProjectId) {
-      setVideos([]);
-      return;
-    }
+    if (!watchProjectId) return;
     let active = true;
     (async () => {
       const result = await getUploadsAction({
@@ -143,11 +140,6 @@ export function DeliveryFormModal({
   // Populate form when editing
   useEffect(() => {
     if (delivery) {
-      // Fetch delivery videos
-      let active = true;
-      (async () => {
-        // We'd fetch delivery details, but for simplicity use the videoIds from the form
-      })();
       reset({
         projectId: delivery.projectId,
         title: delivery.title,
@@ -161,8 +153,13 @@ export function DeliveryFormModal({
         password: "",
         videoIds: [],
       });
-      setSelectedProject(delivery.projectId);
-    } else {
+    }
+  }, [delivery, reset]);
+
+  const handleOpenChange = (next: boolean) => {
+    if (!next) {
+      setSelectedVideos([]);
+      hasFetched.current = false;
       reset({
         projectId: "",
         title: "",
@@ -174,9 +171,9 @@ export function DeliveryFormModal({
         password: "",
         videoIds: [],
       });
-      setSelectedVideos([]);
     }
-  }, [delivery, reset]);
+    onOpenChange(next);
+  };
 
   const toggleVideo = (videoId: string) => {
     setSelectedVideos((prev) =>
@@ -209,7 +206,7 @@ export function DeliveryFormModal({
           formData
         );
         if (result.success) {
-          onOpenChange(false);
+          handleOpenChange(false);
           onSuccess?.();
         }
       } else {
@@ -218,7 +215,7 @@ export function DeliveryFormModal({
           formData
         );
         if (result.success) {
-          onOpenChange(false);
+          handleOpenChange(false);
           onSuccess?.();
         }
       }
@@ -228,7 +225,7 @@ export function DeliveryFormModal({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[560px]">
         <DialogHeader>
           <DialogTitle>{isEdit ? "تعديل التسليم" : "إنشاء تسليم جديد"}</DialogTitle>
@@ -287,7 +284,7 @@ export function DeliveryFormModal({
           </div>
 
           {/* Password */}
-          {watch("passwordProtected") && (
+          {watchPasswordProtected && (
             <div className="space-y-1.5">
               <Label htmlFor="password">كلمة المرور</Label>
               <div className="relative">
@@ -341,7 +338,7 @@ export function DeliveryFormModal({
           )}
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
+            <Button type="button" variant="outline" onClick={() => handleOpenChange(false)} disabled={submitting}>
               إلغاء
             </Button>
             <Button type="submit" disabled={submitting}>

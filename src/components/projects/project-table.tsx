@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useTransition } from "react";
+import { useState, useCallback, useEffect, useTransition } from "react";
 import Link from "next/link";
 import {
   Search,
@@ -104,12 +104,12 @@ export function ProjectTable() {
   }, [page, pageSize, search, filter, sort]);
 
   // Fetch on mount and when params change
-  useMemo(() => {
+  useEffect(() => {
     fetchData();
   }, [fetchData]);
 
   // Debounce search input
-  useMemo(() => {
+  useEffect(() => {
     const timer = setTimeout(() => {
       setSearch(searchInput);
       setPage(1);

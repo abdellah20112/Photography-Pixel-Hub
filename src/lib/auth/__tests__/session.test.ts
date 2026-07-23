@@ -1,23 +1,38 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { SignJWT } from "jose";
 
-/* ── Mock next/headers ────────────────────── */
+/* ── Mock dependencies ───────────────────── */
 
-const cookieStore = new Map<string, string>();
+const mockSupabaseClient = {
+  auth: {
+    getUser: vi.fn(),
+    signOut: vi.fn(),
+  },
+};
 
-vi.mock("next/headers", () => ({
-  cookies: vi.fn(() => ({
-    get: (name: string) => {
-      const value = cookieStore.get(name);
-      return value ? { name, value } : undefined;
+const { mockSupabaseClient: hoistedClient } = vi.hoisted(() => ({
+  mockSupabaseClient: {
+    auth: {
+      getUser: vi.fn(),
+      signOut: vi.fn(),
     },
-    set: (name: string, value: string) => {
-      cookieStore.set(name, value);
-    },
-    delete: (name: string) => {
-      cookieStore.delete(name);
-    },
-  })),
+  },
+}));
+
+vi.mock("@/lib/supabase/server", () => ({
+  createSupabaseServerClient: vi.fn().mockResolvedValue(hoistedClient),
+}));
+
+vi.mock("@/repositories/user.repository", () => ({
+  userRepository: {
+    findBySupabaseUid: vi.fn(),
+    findByEmail: vi.fn(),
+    findById: vi.fn(),
+    create: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+    findMany: vi.fn(),
+    count: vi.fn(),
+  },
 }));
 
 vi.mock("@/lib/prisma", () => ({
@@ -26,98 +41,136 @@ vi.mock("@/lib/prisma", () => ({
 
 /* ── Imports (after mocks) ────────────────── */
 
-import { createSession, getSession, destroySession } from "@/lib/auth/session";
-import { SESSION_COOKIE_NAME, SESSION_ALG } from "@/lib/auth/config";
+import {
+  getCurrentUser,
+  requireUser,
+  requireRole,
+  createSession,
+  destroySession,
+} from "@/lib/auth/session";
+import { userRepository } from "@/repositories/user.repository";
+import {
+  UnauthorizedError,
+  ForbiddenError,
+} from "@/lib/auth/errors";
 
 /* ============================================
    Session Utility Tests
+   Supabase Auth-based session management.
    ============================================ */
 
-const TEST_SECRET = "test-secret-key-for-vitest-aaaaaaaaaaaaaaa";
-
-function getSecret(): Uint8Array {
-  return new TextEncoder().encode(TEST_SECRET);
-}
+const mockUser = {
+  id: "user-1",
+  email: "test@example.com",
+  name: "Test User",
+  supabaseUid: "supabase-uid-1",
+  role: "OWNER" as const,
+  avatar: null,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+};
 
 describe("Session Utilities", () => {
   beforeEach(() => {
-    cookieStore.clear();
-    vi.stubEnv("AUTH_SECRET", TEST_SECRET);
+    vi.clearAllMocks();
   });
 
-  /* ── Create + Get session ───────────────── */
-  it("creates and retrieves a session", async () => {
-    await createSession({
-      id: "user-1",
-      email: "test@example.com",
-      name: "Test User",
-      role: "OWNER",
+  /* ── getCurrentUser ────────────────────── */
+
+  it("returns null when no Supabase session exists", async () => {
+    hoistedClient.auth.getUser.mockResolvedValue({
+      data: { user: null },
+      error: { message: "Auth session missing!" },
     });
 
-    const session = await getSession();
-
-    expect(session).not.toBeNull();
-    expect(session!.id).toBe("user-1");
-    expect(session!.email).toBe("test@example.com");
-    expect(session!.role).toBe("OWNER");
+    const result = await getCurrentUser();
+    expect(result).toBeNull();
   });
 
-  /* ── No session ─────────────────────────── */
-  it("returns null when no session cookie exists", async () => {
-    const session = await getSession();
-    expect(session).toBeNull();
+  it("returns null when Supabase user has no Prisma profile", async () => {
+    hoistedClient.auth.getUser.mockResolvedValue({
+      data: { user: { id: "supabase-uid-1" } },
+      error: null,
+    });
+    vi.mocked(userRepository.findBySupabaseUid).mockResolvedValue(null);
+
+    const result = await getCurrentUser();
+    expect(result).toBeNull();
   });
 
-  /* ── Expired session ────────────────────── */
-  it("returns null for an expired session token", async () => {
-    // Create a token that already expired
-    const expiredToken = await new SignJWT({
-      sub: "user-1",
-      email: "test@example.com",
-      name: "Test",
-      role: "OWNER",
-    })
-      .setProtectedHeader({ alg: SESSION_ALG })
-      .setIssuedAt(Math.floor(Date.now() / 1000) - 3600)
-      .setExpirationTime(Math.floor(Date.now() / 1000) - 60) // expired 1 min ago
-      .sign(getSecret());
+  it("returns authenticated user when session and profile exist", async () => {
+    hoistedClient.auth.getUser.mockResolvedValue({
+      data: { user: { id: "supabase-uid-1" } },
+      error: null,
+    });
+    vi.mocked(userRepository.findBySupabaseUid).mockResolvedValue(mockUser);
 
-    cookieStore.set(SESSION_COOKIE_NAME, expiredToken);
-
-    const session = await getSession();
-    expect(session).toBeNull();
+    const result = await getCurrentUser();
+    expect(result).not.toBeNull();
+    expect(result!.id).toBe("user-1");
+    expect(result!.email).toBe("test@example.com");
+    expect(result!.role).toBe("OWNER");
   });
 
-  /* ── Tampered token ────────────────────── */
-  it("returns null for a tampered token", async () => {
-    await createSession({
-      id: "user-1",
-      email: "test@example.com",
-      name: "Test",
-      role: "OWNER",
+  /* ── requireUser ───────────────────────── */
+
+  it("throws UnauthorizedError when no session exists", async () => {
+    hoistedClient.auth.getUser.mockResolvedValue({
+      data: { user: null },
+      error: { message: "Auth session missing!" },
     });
 
-    // Tamper with the token
-    const token = cookieStore.get(SESSION_COOKIE_NAME)!;
-    cookieStore.set(SESSION_COOKIE_NAME, token.slice(0, -5) + "XXXXX");
-
-    const session = await getSession();
-    expect(session).toBeNull();
+    await expect(requireUser()).rejects.toThrow(UnauthorizedError);
   });
 
-  /* ── Destroy session ───────────────────── */
-  it("destroys the session cookie", async () => {
-    await createSession({
-      id: "user-1",
-      email: "test@example.com",
-      name: "Test",
-      role: "OWNER",
+  /* ── requireRole ───────────────────────── */
+
+  it("throws UnauthorizedError when no session exists", async () => {
+    hoistedClient.auth.getUser.mockResolvedValue({
+      data: { user: null },
+      error: { message: "Auth session missing!" },
     });
 
-    expect(cookieStore.has(SESSION_COOKIE_NAME)).toBe(true);
+    await expect(requireRole("ADMIN")).rejects.toThrow(UnauthorizedError);
+  });
+
+  it("throws ForbiddenError when role is not allowed", async () => {
+    hoistedClient.auth.getUser.mockResolvedValue({
+      data: { user: { id: "supabase-uid-1" } },
+      error: null,
+    });
+    vi.mocked(userRepository.findBySupabaseUid).mockResolvedValue({
+      ...mockUser,
+      role: "PHOTOGRAPHER" as const,
+    });
+
+    await expect(requireRole("OWNER", "ADMIN")).rejects.toThrow(ForbiddenError);
+  });
+
+  it("returns user when role is allowed", async () => {
+    hoistedClient.auth.getUser.mockResolvedValue({
+      data: { user: { id: "supabase-uid-1" } },
+      error: null,
+    });
+    vi.mocked(userRepository.findBySupabaseUid).mockResolvedValue(mockUser);
+
+    const user = await requireRole("OWNER");
+    expect(user.role).toBe("OWNER");
+  });
+
+  /* ── createSession (deprecated no-op) ──── */
+
+  it("createSession is a no-op (deprecated)", async () => {
+    await expect(createSession(mockUser)).resolves.toBeUndefined();
+  });
+
+  /* ── destroySession ───────────────────── */
+
+  it("destroySession calls supabase.auth.signOut", async () => {
+    hoistedClient.auth.signOut.mockResolvedValue({ error: null });
 
     await destroySession();
 
-    expect(cookieStore.has(SESSION_COOKIE_NAME)).toBe(false);
+    expect(hoistedClient.auth.signOut).toHaveBeenCalled();
   });
 });

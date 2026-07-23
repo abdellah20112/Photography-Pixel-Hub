@@ -193,6 +193,7 @@ export const modelService = {
       projectId: string;
       modelId: string;
       videosCount: number;
+      script?: string;
       notes?: string;
     },
     options?: { actorId?: string; actorName?: string }
@@ -200,7 +201,7 @@ export const modelService = {
     // Check for duplicate assignment
     const existing = await modelRepository.findAssignment(data.projectId, data.modelId);
     if (existing) {
-      throw new Error("الموديل مُعيّن بالفعل في هذا المشروع");
+      throw new Error("الموديل مُعَيّن بالفعل في هذا المشروع");
     }
 
     // Calculate pricing
@@ -212,6 +213,7 @@ export const modelService = {
       videosCount: data.videosCount,
       pricePerVideo,
       totalAmount,
+      script: data.script || null,
       notes: data.notes || null,
     });
 

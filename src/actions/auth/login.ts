@@ -5,7 +5,6 @@ import { headers } from "next/headers";
 import { authService } from "@/services/auth.service";
 import { loginSchema } from "@/lib/validations/auth";
 import { getCurrentUser } from "@/lib/auth/session";
-import { ROUTES } from "@/lib/constants/routes";
 import {
   AuthError,
   InvalidCredentialsError,
@@ -72,12 +71,10 @@ export async function loginAction(
     }
 
     // Never reveal internal errors to the client
+    console.error("[loginAction] Unexpected error:", err);
     return {
       success: false,
       error: "حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.",
     };
   }
 }
-
-/** Redirect path after successful login. */
-export const LOGIN_REDIRECT = ROUTES.DASHBOARD;

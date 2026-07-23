@@ -48,6 +48,7 @@ export async function getShootsAction(params?: {
       status: s.status,
       notes: s.notes,
       createdAt: s.createdAt,
+      updatedAt: s.updatedAt,
       project: s.project,
       assignmentCount: s._count.assignments,
     })),

@@ -3,16 +3,17 @@ import { VIDEO_LIMITS } from "@/lib/constants";
 /* ============================================
    Storage Configuration
    Centralized configuration for all storage
-   operations — bucket, expiration, limits.
+   operations — reads credentials ONLY from
+   process.env. No hardcoded credentials.
    ============================================ */
 
-/** Cloudflare R2 environment configuration. */
+/** Cloudflare R2 environment configuration (from process.env). */
 const R2_ENV = {
+  ACCOUNT_ID: process.env.R2_ACCOUNT_ID ?? "",
+  ACCESS_KEY_ID: process.env.R2_ACCESS_KEY_ID ?? "",
+  SECRET_ACCESS_KEY: process.env.R2_SECRET_ACCESS_KEY ?? "",
+  BUCKET_NAME: process.env.R2_BUCKET_NAME ?? "",
   ENDPOINT: process.env.R2_ENDPOINT ?? "",
-  ACCESS_KEY: process.env.R2_ACCESS_KEY ?? "",
-  SECRET_KEY: process.env.R2_SECRET_KEY ?? "",
-  BUCKET: process.env.R2_BUCKET ?? "",
-  PUBLIC_URL: process.env.R2_PUBLIC_URL ?? "",
 } as const;
 
 /** Centralized storage configuration. */
@@ -21,19 +22,19 @@ export const STORAGE_CONFIG = {
   PROVIDER: "cloudflare-r2" as const,
 
   /** Bucket name. */
-  BUCKET: R2_ENV.BUCKET,
+  BUCKET: R2_ENV.BUCKET_NAME,
 
   /** Provider endpoint. */
   ENDPOINT: R2_ENV.ENDPOINT,
 
+  /** Cloudflare account ID. */
+  ACCOUNT_ID: R2_ENV.ACCOUNT_ID,
+
   /** Provider credentials. */
   CREDENTIALS: {
-    accessKey: R2_ENV.ACCESS_KEY,
-    secretKey: R2_ENV.SECRET_KEY,
+    accessKeyId: R2_ENV.ACCESS_KEY_ID,
+    secretAccessKey: R2_ENV.SECRET_ACCESS_KEY,
   },
-
-  /** Public CDN URL (if supported by provider). */
-  PUBLIC_URL: R2_ENV.PUBLIC_URL,
 
   /** Signed URL expiration in seconds. */
   SIGNED_URL_EXPIRATION: {
@@ -57,8 +58,3 @@ export const STORAGE_CONFIG = {
     ] as const,
   } as const,
 } as const;
-
-/** Build a public URL for an object (if provider supports it). */
-export function getPublicUrl(key: string): string {
-  return `${STORAGE_CONFIG.PUBLIC_URL}/${key}`;
-}

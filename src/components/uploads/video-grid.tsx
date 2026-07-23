@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useTransition } from "react";
+import { useState, useCallback, useEffect, useTransition } from "react";
 import {
   Search,
   ArrowUpDown,
@@ -94,11 +94,11 @@ export function VideoGrid({ projectId, showProjectColumn = false }: VideoGridPro
     });
   }, [page, pageSize, projectId, search, filter, sort]);
 
-  useMemo(() => {
+  useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  useMemo(() => {
+  useEffect(() => {
     const timer = setTimeout(() => {
       setSearch(searchInput);
       setPage(1);

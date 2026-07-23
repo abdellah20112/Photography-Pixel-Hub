@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect } from "react";
 import {
   DollarSign, TrendingUp, FolderKanban, CheckCircle2,
   Users, UserCircle, Camera, ListChecks,
@@ -63,18 +63,21 @@ export function ExecutiveDashboard() {
   const [preset, setPreset] = useState<DateRangePreset>("month");
   const [exporting, setExporting] = useState(false);
   const [reportType, setReportType] = useState<ReportType>("monthly");
-  const hasFetched = useRef(false);
-
-  const fetchDashboard = useCallback(async () => {
-    setLoading(true);
-    const result = await getDashboardAction({ preset });
-    setData(result);
-    setLoading(false);
-  }, [preset]);
 
   useEffect(() => {
-    fetchDashboard();
-  }, [fetchDashboard]);
+    let active = true;
+    getDashboardAction({ preset }).then((result) => {
+      if (!active) return;
+      setData(result);
+      setLoading(false);
+    });
+    return () => { active = false };
+  }, [preset]);
+
+  const handlePresetChange = (newPreset: DateRangePreset) => {
+    setLoading(true);
+    setPreset(newPreset);
+  };
 
   const handleExport = async (format: ExportFormat) => {
     setExporting(true);
@@ -133,7 +136,7 @@ export function ExecutiveDashboard() {
           {PRESETS.map((p) => (
             <button
               key={p.value}
-              onClick={() => setPreset(p.value)}
+              onClick={() => handlePresetChange(p.value)}
               className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                 preset === p.value ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
               }`}

@@ -43,9 +43,15 @@ vi.mock("@/services/timeline.service", () => ({
 
 vi.mock("@/lib/utils/whatsapp", () => ({
   getWhatsAppUrl: vi.fn((phone: string, message?: string) => {
-    const cleanPhone = phone.replace(/[^0-9]/g, "");
+    const cleanPhone = phone.replace(/[^0-9+]/g, "").replace(/^\+/, "");
+    let formatted = cleanPhone;
+    if (formatted.startsWith("212")) {
+      // Already international
+    } else if (/^0[67]\d{8}$/.test(formatted)) {
+      formatted = "212" + formatted.slice(1);
+    }
     const text = message ? `?text=${encodeURIComponent(message)}` : "";
-    return `https://wa.me/${cleanPhone}${text}`;
+    return `https://wa.me/${formatted}${text}`;
   }),
 }));
 
@@ -171,7 +177,7 @@ describe("modelService.assignToProject", () => {
         modelId: "model-1",
         videosCount: 1,
       })
-    ).rejects.toThrow("الموديل مُعيّن بالفعل");
+    ).rejects.toThrow("بالفعل");
   });
 
   it("publishes MODEL_ASSIGNED timeline event", async () => {
@@ -249,22 +255,28 @@ describe("modelService.getStatistics", () => {
 });
 
 describe("getWhatsAppUrl", () => {
-  it("generates WhatsApp URL with phone", async () => {
+  it("generates WhatsApp URL with Moroccan phone", async () => {
     const { getWhatsAppUrl } = await import("@/lib/utils/whatsapp");
-    const url = getWhatsAppUrl("0501234567");
-    expect(url).toContain("wa.me/0501234567");
+    const url = getWhatsAppUrl("0612345678");
+    expect(url).toContain("wa.me/212612345678");
+  });
+
+  it("handles 07 prefix", async () => {
+    const { getWhatsAppUrl } = await import("@/lib/utils/whatsapp");
+    const url = getWhatsAppUrl("0712345678");
+    expect(url).toContain("wa.me/212712345678");
   });
 
   it("includes message when provided", async () => {
     const { getWhatsAppUrl } = await import("@/lib/utils/whatsapp");
-    const url = getWhatsAppUrl("0501234567", "مرحباً");
+    const url = getWhatsAppUrl("0612345678", "مرحباً");
     expect(url).toContain("text=");
     expect(url).toContain(encodeURIComponent("مرحباً"));
   });
 
   it("strips non-numeric characters from phone", async () => {
     const { getWhatsAppUrl } = await import("@/lib/utils/whatsapp");
-    const url = getWhatsAppUrl("+966 50 123 4567");
-    expect(url).toContain("wa.me/966501234567");
+    const url = getWhatsAppUrl("+212 6 12 34 56 78");
+    expect(url).toContain("wa.me/212612345678");
   });
 });

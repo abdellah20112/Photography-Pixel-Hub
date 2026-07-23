@@ -233,6 +233,45 @@ enum ProjectEventType {
   TASK_OVERDUE
 }
 
+enum ServiceType {
+  VIDEO
+  PHOTOGRAPHY
+  BOTH
+  EDITING
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum NotificationType {
+  PROJECT_CREATED
+  MODEL_ASSIGNED
+  UPLOAD_FINISHED
+  CLIENT_COMMENTED
+  CLIENT_APPROVED
+  CHANGES_REQUESTED
+  DOWNLOAD_ENABLED
+  DOWNLOAD_COMPLETED
+  PROJECT_COMPLETED
+  STATUS_CHANGED
+}
+
+enum ProjectFileType {
+  PREVIEW_VIDEO
+  FINAL_VIDEO
+  THUMBNAIL
+  ASSET
+  MUSIC
+  LOGO
+  DOCUMENT
+  INVOICE
+  CONTRACT
+}
+
 // ============================================
 // Models
 // ============================================
@@ -249,6 +288,7 @@ model User {
 
   clients      Client[]
   activityLogs ActivityLog[]
+  notifications Notification[]
 
   @@index([email])
   @@index([supabaseUid])
@@ -261,9 +301,10 @@ model Client {
   clientCode String       @unique
   name       String
   company    String?
-  email      String
-  phone      String?
-  notes      String?
+  email      String?
+  phone       String?
+  city        String?
+  notes       String?
   status     ClientStatus @default(ACTIVE)
   token      String       @unique
   archivedAt DateTime?
@@ -291,11 +332,16 @@ model Project {
   projectCode    String         @unique
   clientId       String         @db.Uuid
   name           String
+  brandName      String?
+  serviceType    ServiceType?
+  priority       Priority       @default(MEDIUM)
   description    String?
   status         ProjectStatus  @default(DRAFT)
   workflowStatus ProjectWorkflowStatus @default(NEW)
   retentionPeriod RetentionPeriod @default(TWENTY_FOUR_HOURS)
   deadline       DateTime?
+  shootingDate   DateTime?
+  price          Float?
   token          String         @unique
   archivedAt     DateTime?
   createdAt      DateTime       @default(now())
@@ -313,6 +359,7 @@ model Project {
   projectAssignments ProjectAssignment[]
   shoots    Shoot[]
   tasks     Task[]
+  projectFiles ProjectFile[]
 
   @@index([clientId])
   @@index([status])
@@ -368,6 +415,8 @@ model Download {
   projectId String   @db.Uuid
   ip        String?
   userAgent String?
+  browser   String?
+  device    String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -505,6 +554,7 @@ model Model {
   email     String?
   photo     String?
   status    ModelStatus @default(ACTIVE)
+  availability String?
   notes     String?
   createdAt DateTime    @default(now())
   updatedAt DateTime    @updatedAt
@@ -526,6 +576,7 @@ model ProjectModel {
   pricePerVideo Float         @default(0)
   totalAmount   Float         @default(0)
   paymentStatus PaymentStatus @default(PENDING)
+  script        String?
   notes         String?
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
@@ -842,4 +893,40 @@ model ActivityLog {
   @@index([type])
   @@index([entity, entityId])
   @@map("activity_logs")
+}
+
+model Notification {
+  id        String           @id @default(uuid()) @db.Uuid
+  userId    String           @db.Uuid
+  type      NotificationType
+  title     String
+  message   String
+  entity    String?
+  entityId  String?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model ProjectFile {
+  id          String          @id @default(uuid()) @db.Uuid
+  projectId   String          @db.Uuid
+  fileType    ProjectFileType
+  storageKey  String
+  fileName    String
+  fileSize    Int             @default(0)
+  mimeType    String          @default("")
+  uploadedBy  String?         @db.Uuid
+  createdAt   DateTime        @default(now())
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([fileType])
+  @@map("project_files")
 }

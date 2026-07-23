@@ -185,6 +185,7 @@ export const modelRepository = {
     videosCount: number;
     pricePerVideo: number;
     totalAmount: number;
+    script?: string | null;
     notes?: string | null;
   }) {
     return prisma.projectModel.create({

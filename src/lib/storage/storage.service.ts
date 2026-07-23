@@ -1,7 +1,14 @@
 import { STORAGE_CONFIG } from "./config";
 import { CloudflareR2Provider } from "./cloudflare-r2.provider";
 import type { StorageProvider } from "./provider";
-import type { UploadParams, SignedUrlOptions } from "./types";
+import type {
+  UploadParams,
+  SignedUrlOptions,
+  FileMetadata,
+  ListFilesOptions,
+  ListFilesResult,
+  CopyFileOptions,
+} from "./types";
 
 /* ============================================
    StorageService
@@ -11,19 +18,10 @@ import type { UploadParams, SignedUrlOptions } from "./types";
    API routes) import from here exclusively.
    ============================================ */
 
-/**
- * Instantiate the active provider based on configuration.
- * To swap providers, change STORAGE_CONFIG.PROVIDER
- * and add the provider class — no other code changes needed.
- */
 function createProvider(): StorageProvider {
   switch (STORAGE_CONFIG.PROVIDER) {
     case "cloudflare-r2":
       return new CloudflareR2Provider();
-    // Future providers:
-    // case "aws-s3": return new AwsS3Provider();
-    // case "supabase": return new SupabaseStorageProvider();
-    // case "local": return new LocalStorageProvider();
     default:
       return new CloudflareR2Provider();
   }
@@ -58,8 +56,24 @@ export const storageService: StorageProvider = {
     return provider.delete(key);
   },
 
+  moveFile(sourceKey: string, destinationKey: string): Promise<string> {
+    return provider.moveFile(sourceKey, destinationKey);
+  },
+
+  copyFile(sourceKey: string, destinationKey: string, options?: CopyFileOptions): Promise<string> {
+    return provider.copyFile(sourceKey, destinationKey, options);
+  },
+
+  listFiles(options?: ListFilesOptions): Promise<ListFilesResult> {
+    return provider.listFiles(options);
+  },
+
   exists(key: string): Promise<boolean> {
     return provider.exists(key);
+  },
+
+  getMetadata(key: string): Promise<FileMetadata> {
+    return provider.getMetadata(key);
   },
 
   getSignedUrl(key: string, options?: SignedUrlOptions): Promise<string> {
@@ -77,11 +91,11 @@ export const storageService: StorageProvider = {
   generateUploadUrl(
     key: string,
     contentType: string,
-    options?: SignedUrlOptions
+    options?: SignedUrlOptions,
   ): Promise<string> {
     return provider.generateUploadUrl(key, contentType, options);
   },
 };
 
 /** Re-export types for consumer convenience. */
-export type { StorageProvider, UploadParams, SignedUrlOptions };
+export type { StorageProvider, UploadParams, SignedUrlOptions, FileMetadata, ListFilesOptions, ListFilesResult, CopyFileOptions };

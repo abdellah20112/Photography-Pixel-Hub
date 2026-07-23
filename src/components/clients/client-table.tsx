@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useTransition } from "react";
+import { useState, useCallback, useEffect, useTransition } from "react";
 import Link from "next/link";
 import {
   Search,
@@ -32,6 +32,7 @@ import {
 import { EmptyState } from "@/components/shared/empty-state";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { ClientFormModal } from "@/components/forms/client-form";
+import { ProjectWizard } from "@/components/wizard/project-wizard";
 import { ROUTES } from "@/lib/constants";
 import { formatDate } from "@/lib/utils/format";
 import { getClientsAction } from "@/actions/clients/get-clients";
@@ -91,6 +92,7 @@ export function ClientTable() {
   const [pageSize, setPageSize] = useState(10);
 
   const [formOpen, setFormOpen] = useState(false);
+  const [wizardOpen, setWizardOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<ClientTableRow | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ClientTableRow | null>(null);
   const [restoreTarget, setRestoreTarget] = useState<ClientTableRow | null>(null);
@@ -112,12 +114,12 @@ export function ClientTable() {
   }, [page, pageSize, search, filter, sort]);
 
   // Fetch on mount and when params change
-  useMemo(() => {
+  useEffect(() => {
     fetchData();
   }, [fetchData]);
 
   // Debounce search input
-  useMemo(() => {
+  useEffect(() => {
     const timer = setTimeout(() => {
       setSearch(searchInput);
       setPage(1);
@@ -126,8 +128,7 @@ export function ClientTable() {
   }, [searchInput]);
 
   const handleCreate = () => {
-    setEditingClient(null);
-    setFormOpen(true);
+    setWizardOpen(true);
   };
 
   const handleEdit = (client: ClientTableRow) => {
@@ -476,6 +477,12 @@ export function ClientTable() {
       )}
 
       {/* Modals */}
+      <ProjectWizard
+        open={wizardOpen}
+        onOpenChange={setWizardOpen}
+        onSuccess={fetchData}
+      />
+
       <ClientFormModal
         open={formOpen}
         onOpenChange={setFormOpen}

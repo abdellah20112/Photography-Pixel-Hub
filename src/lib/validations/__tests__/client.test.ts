@@ -9,37 +9,38 @@ import {
 
 /* ============================================
    Client Validation Tests
+   Email optional, phone required (Moroccan 06/07)
    ============================================ */
 
 describe("createClientSchema", () => {
   const validInput = {
     name: "أحمد محمد",
     email: "ahmed@example.com",
-    phone: "0501234567",
+    phone: "0612345678",
     company: "شركة الإبداع",
     notes: "عميل مميز",
     status: "ACTIVE" as const,
   };
 
-  /* ── Valid input ────────────────────────── */
+  /* ── Valid input ─────────────────────────── */
   it("accepts valid input with all fields", () => {
     const result = createClientSchema.safeParse(validInput);
     expect(result.success).toBe(true);
   });
 
-  it("accepts valid input without optional fields", () => {
+  it("accepts valid input without optional fields (no email)", () => {
     const result = createClientSchema.safeParse({
       name: "أحمد",
-      email: "ahmed@example.com",
+      phone: "0712345678",
       status: "ACTIVE",
     });
     expect(result.success).toBe(true);
   });
 
-  /* ── Name validation ────────────────────── */
+  /* ── Name validation ──────────────────────── */
   it("rejects when name is missing", () => {
     const result = createClientSchema.safeParse({
-      email: "ahmed@example.com",
+      phone: "0612345678",
       status: "ACTIVE",
     });
     expect(result.success).toBe(false);
@@ -64,7 +65,7 @@ describe("createClientSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  /* ── Email validation ──────────────────── */
+  /* ── Email validation (now optional) ──────── */
   it("rejects invalid email format", () => {
     const result = createClientSchema.safeParse({
       ...validInput,
@@ -73,24 +74,21 @@ describe("createClientSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  it("rejects when email is empty", () => {
+  it("accepts empty email (optional)", () => {
     const result = createClientSchema.safeParse({
       ...validInput,
       email: "",
     });
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.issues[0]?.message).toContain("مطلوب");
-    }
+    expect(result.success).toBe(true);
   });
 
-  /* ── Phone validation ──────────────────── */
-  it("accepts empty phone", () => {
+  /* ── Phone validation (now required, Moroccan) ── */
+  it("rejects empty phone (required)", () => {
     const result = createClientSchema.safeParse({
       ...validInput,
       phone: "",
     });
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
   });
 
   it("rejects invalid phone format", () => {
@@ -101,7 +99,31 @@ describe("createClientSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  /* ── Status validation ─────────────────── */
+  it("rejects phone not starting with 06 or 07", () => {
+    const result = createClientSchema.safeParse({
+      ...validInput,
+      phone: "0512345678",
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it("accepts 06 prefix", () => {
+    const result = createClientSchema.safeParse({
+      ...validInput,
+      phone: "0612345678",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("accepts 07 prefix", () => {
+    const result = createClientSchema.safeParse({
+      ...validInput,
+      phone: "0712345678",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  /* ── Status validation ───────────────────── */
   it("rejects invalid status value", () => {
     const result = createClientSchema.safeParse({
       ...validInput,
@@ -110,7 +132,7 @@ describe("createClientSchema", () => {
     expect(result.success).toBe(false);
   });
 
-  /* ── Company / Notes length ────────────── */
+  /* ── Company / Notes length ──────────────── */
   it("rejects company name exceeding 100 characters", () => {
     const result = createClientSchema.safeParse({
       ...validInput,
@@ -132,8 +154,7 @@ describe("updateClientSchema", () => {
   it("accepts valid update input", () => {
     const result = updateClientSchema.safeParse({
       name: "Updated Name",
-      email: "updated@example.com",
-      phone: "0509876543",
+      phone: "0698765432",
       status: "BLOCKED",
     });
     expect(result.success).toBe(true);

@@ -65,6 +65,8 @@ export const projectService = {
       description?: string;
       retentionPeriod: RetentionPeriod;
       deadline: Date;
+      shootingDate?: Date;
+      price?: number;
       status?: ProjectStatus;
     },
     options?: { actorId?: string }
@@ -80,6 +82,8 @@ export const projectService = {
       token,
       retentionPeriod: data.retentionPeriod,
       deadline: data.deadline,
+      shootingDate: data.shootingDate ?? null,
+      price: data.price ?? null,
       status: data.status ?? ("DRAFT" as ProjectStatus),
     });
 

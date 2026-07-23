@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useMemo, useTransition } from "react";
+import { useState, useCallback, useEffect, useTransition } from "react";
 import Link from "next/link";
 import {
   Search,
@@ -99,11 +99,11 @@ export function DeliveryTable({ projectId }: DeliveryTableProps) {
     });
   }, [page, pageSize, projectId, search, filter, sort]);
 
-  useMemo(() => {
+  useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  useMemo(() => {
+  useEffect(() => {
     const timer = setTimeout(() => {
       setSearch(searchInput);
       setPage(1);

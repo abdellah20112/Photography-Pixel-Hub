@@ -9,6 +9,7 @@ import { ROUTES } from "@/lib/constants";
 
 /* ============================================
    Create Client Server Action
+   Email optional, phone required (Moroccan).
    ============================================ */
 
 export type CreateClientState = {
@@ -48,7 +49,7 @@ export async function createClientAction(
         userId: user.id,
         name: parsed.data.name,
         company: parsed.data.company,
-        email: parsed.data.email,
+        email: parsed.data.email || undefined,
         phone: parsed.data.phone,
         notes: parsed.data.notes,
         status: parsed.data.status,

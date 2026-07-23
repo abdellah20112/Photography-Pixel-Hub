@@ -1,11 +1,18 @@
-import type { UploadParams, SignedUrlOptions } from "./types";
+import type {
+  UploadParams,
+  SignedUrlOptions,
+  FileMetadata,
+  ListFilesOptions,
+  ListFilesResult,
+  CopyFileOptions,
+} from "./types";
 
 /* ============================================
    StorageProvider Interface
    Provider-agnostic contract for file storage.
-   Every provider (R2, S3, Supabase, Local, etc.)
-   must implement this interface.
-   No provider-specific types leak here.
+   Every provider (R2, S3, etc.) must implement
+   this interface. No provider-specific types
+   leak here.
    ============================================ */
 
 export interface StorageProvider {
@@ -33,9 +40,31 @@ export interface StorageProvider {
   delete(key: string): Promise<void>;
 
   /**
+   * Move/rename an object within the same bucket.
+   * @returns the new object key.
+   */
+  moveFile(sourceKey: string, destinationKey: string): Promise<string>;
+
+  /**
+   * Copy an object within the same bucket.
+   * @returns the new object key.
+   */
+  copyFile(sourceKey: string, destinationKey: string, options?: CopyFileOptions): Promise<string>;
+
+  /**
+   * List objects in the bucket with an optional prefix.
+   */
+  listFiles(options?: ListFilesOptions): Promise<ListFilesResult>;
+
+  /**
    * Check if an object exists in storage.
    */
   exists(key: string): Promise<boolean>;
+
+  /**
+   * Get object metadata (size, content-type, etag, etc.).
+   */
+  getMetadata(key: string): Promise<FileMetadata>;
 
   /**
    * Generate a signed URL for downloading a private object.
@@ -45,12 +74,14 @@ export interface StorageProvider {
   /**
    * Generate a signed download URL.
    * Uses download-specific expiration by default.
+   * Sets Content-Disposition to attachment.
    */
   getDownloadUrl(key: string, options?: SignedUrlOptions): Promise<string>;
 
   /**
    * Generate a signed streaming URL.
    * Uses streaming-specific expiration by default.
+   * Supports range requests for video seeking.
    */
   getStreamingUrl(key: string, options?: SignedUrlOptions): Promise<string>;
 

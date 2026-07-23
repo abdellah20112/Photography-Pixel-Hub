@@ -13,6 +13,9 @@ import {
   Clock,
   Activity,
   HardDrive,
+  PlayCircle,
+  Package,
+  Share2,
 } from "lucide-react";
 
 import { projectService } from "@/services/project.service";
@@ -28,6 +31,10 @@ import { ProjectStatusBadge } from "@/components/projects/project-status-badge";
 import { RetentionBadge } from "@/components/projects/retention-badge";
 import { WorkflowBadge } from "@/components/workflow/workflow-badge";
 import { ProjectTimeline } from "@/components/workflow/project-timeline";
+import { ProjectFiles } from "@/components/uploads/project-files";
+import { SharePortalButton } from "@/components/projects/share-portal-button";
+import { ProjectAnalytics } from "@/components/projects/project-analytics";
+import { VersionHistory } from "@/components/projects/version-history";
 
 /* ============================================
    Project Details Page
@@ -114,6 +121,19 @@ export default async function ProjectDetailsPage({
             أُرشف في {formatDate(project.archivedAt)}
           </span>
         )}
+        <Button size="sm" asChild>
+          <Link href={`/dashboard/projects/${project.id}/review`}>
+            <PlayCircle className="h-4 w-4" />
+            مراجعة الفيديوهات
+          </Link>
+        </Button>
+        <Button size="sm" variant="outline" asChild>
+          <Link href={`/dashboard/projects/${project.id}/delivery`}>
+            <Package className="h-4 w-4" />
+            مركز التسليم
+          </Link>
+        </Button>
+        <SharePortalButton projectId={project.id} />
       </div>
 
       {/* Statistics */}
@@ -209,32 +229,19 @@ export default async function ProjectDetailsPage({
             </dl>
           </DashboardCard>
 
-          {/* Videos Placeholder */}
+          {/* Project Files */}
           <DashboardCard className="p-6">
-            <SectionTitle
-              title="الفيديوهات"
-              action={
-                <Button variant="outline" size="sm" disabled>
-                  <Plus className="h-4 w-4" />
-                  رفع فيديو
-                </Button>
-              }
-            />
+            <SectionTitle title="ملفات المشروع" />
             <div className="mt-4">
-              {statistics.videos > 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  {statistics.videos} فيديو — قيد التطوير
-                </p>
-              ) : (
-                <EmptyState
-                  icon={Video}
-                  title="لا توجد فيديوهات"
-                  description="سيتم عرض فيديوهات المشروع هنا"
-                  className="py-8"
-                />
-              )}
+              <ProjectFiles projectId={project.id} />
             </div>
           </DashboardCard>
+
+          {/* Analytics */}
+          <ProjectAnalytics projectId={project.id} />
+
+          {/* Version History */}
+          <VersionHistory projectId={project.id} />
         </div>
 
         {/* Timeline */}

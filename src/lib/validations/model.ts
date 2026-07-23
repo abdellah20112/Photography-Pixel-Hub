@@ -7,7 +7,7 @@ import { nameSchema, phoneSchema, emailSchema } from "./auth";
    Arabic validation messages.
    ============================================ */
 
-/* ── Enum-like schemas ───────────────────── */
+/* ── Enum-like schemas ─────────────────────────── */
 
 export const modelStatusSchema = z.enum(["ACTIVE", "INACTIVE"]);
 
@@ -19,7 +19,7 @@ export const paymentStatusSchema = z.enum(["PENDING", "PARTIALLY_PAID", "PAID"])
 
 export const paymentFilterSchema = z.enum(["all", "pending", "partially_paid", "paid"]);
 
-/* ── Create / Update ─────────────────────── */
+/* ── Create / Update ────────────────────────────── */
 
 export const createModelSchema = z.object({
   fullName: nameSchema,
@@ -41,22 +41,24 @@ export const updateModelSchema = z.object({
   status: modelStatusSchema,
 });
 
-/* ── Assignment ──────────────────────────── */
+/* ── Assignment ──────────────────────────────────── */
 
 export const assignModelSchema = z.object({
   projectId: z.string().min(1, "المشروع مطلوب"),
   modelId: z.string().min(1, "الموديل مطلوب"),
   videosCount: z.coerce.number().int().min(1, "عدد الفيديوهات يجب أن يكون 1 على الأقل"),
+  script: z.string().max(10000, "السكريبت يجب أن يكون 10000 حرف كحد أقصى").optional().or(z.literal("")),
   notes: z.string().optional().or(z.literal("")),
 });
 
 export const updateAssignmentSchema = z.object({
   videosCount: z.coerce.number().int().min(1, "عدد الفيديوهات يجب أن يكون 1 على الأقل"),
   paymentStatus: paymentStatusSchema,
+  script: z.string().max(10000, "السكريبت يجب أن يكون 10000 حرف كحد أقصى").optional().or(z.literal("")),
   notes: z.string().optional().or(z.literal("")),
 });
 
-/* ── Query / List ────────────────────────── */
+/* ── Query / List ────────────────────────────────── */
 
 export const modelQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -69,7 +71,7 @@ export const modelQuerySchema = z.object({
   sort: modelSortSchema.optional(),
 });
 
-/* ── Types ───────────────────────────────── */
+/* ── Types ─────────────────────────────────────────── */
 
 export type CreateModelInput = z.infer<typeof createModelSchema>;
 export type UpdateModelInput = z.infer<typeof updateModelSchema>;
