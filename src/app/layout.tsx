@@ -73,7 +73,12 @@ export const viewport: Viewport = {
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  const user = await getCurrentUser();
+  let user = null;
+  try {
+    user = await getCurrentUser();
+  } catch {
+    // Authentication failure is non-fatal — render without session
+  }
 
   return (
     <html lang="ar" dir="rtl" suppressHydrationWarning>

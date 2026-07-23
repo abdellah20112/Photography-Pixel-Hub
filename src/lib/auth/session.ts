@@ -22,25 +22,29 @@ import type { SessionUser, UserRole } from "@/types/auth";
  * Returns `null` if not authenticated.
  */
 export async function getCurrentUser(): Promise<SessionUser> {
-  const supabase = await createSupabaseServerClient();
+  try {
+    const supabase = await createSupabaseServerClient();
 
-  const {
-    data: { user: supabaseUser },
-  } = await supabase.auth.getUser();
+    const {
+      data: { user: supabaseUser },
+    } = await supabase.auth.getUser();
 
-  if (!supabaseUser) return null;
+    if (!supabaseUser) return null;
 
-  const user = await userRepository.findBySupabaseUid(supabaseUser.id);
+    const user = await userRepository.findBySupabaseUid(supabaseUser.id);
 
-  if (!user) return null;
+    if (!user) return null;
 
-  return {
-    id: user.id,
-    email: user.email,
-    name: user.name,
-    role: user.role,
-    avatar: user.avatar,
-  };
+    return {
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      avatar: user.avatar,
+    };
+  } catch {
+    return null;
+  }
 }
 
 /**

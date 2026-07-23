@@ -34,12 +34,12 @@ export default function NotFound() {
         >
           العودة للرئيسية
         </Link>
-        <button
-          onClick={() => window.history.back()}
+        <Link
+          href="/login"
           className="rounded-lg border px-6 py-2.5 text-sm font-medium transition-colors hover:bg-muted"
         >
           رجوع
-        </button>
+        </Link>
       </div>
 
       <div className="flex items-center gap-2 text-xs text-muted-foreground/60">

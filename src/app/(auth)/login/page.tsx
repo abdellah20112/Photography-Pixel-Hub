@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -9,16 +9,6 @@ import { toast } from "sonner";
 import { loginAction, type LoginState } from "@/actions/auth/login";
 import { loginSchema, type LoginInput } from "@/lib/validations/auth";
 import { ROUTES } from "@/lib/constants/routes";
-
-/** Validate that a redirect target is a safe internal path. */
-function getSafeRedirect(value: string | null): string {
-  if (!value) return ROUTES.DASHBOARD;
-  // Must start with "/" but not "//" or "/\" (protocol-relative or escaped)
-  if (value.startsWith("/") && !value.startsWith("//") && !value.startsWith("/\\")) {
-    return value;
-  }
-  return ROUTES.DASHBOARD;
-}
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,12 +21,31 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 
+/** Validate that a redirect target is a safe internal path. */
+function getSafeRedirect(value: string | null): string {
+  if (!value) return ROUTES.DASHBOARD;
+  // Must start with "/" but not "//" or "/\" (protocol-relative or escaped)
+  if (value.startsWith("/") && !value.startsWith("//") && !value.startsWith("/\\")) {
+    return value;
+  }
+  return ROUTES.DASHBOARD;
+}
+
 /* ============================================
    Login Page
    Arabic RTL login form.
+   Wrapped in Suspense for useSearchParams().
    ============================================ */
 
 export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [isSubmitting, setIsSubmitting] = useState(false);
