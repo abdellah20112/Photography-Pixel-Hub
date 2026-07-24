@@ -18,13 +18,3 @@ const nextConfig: NextConfig = {
 
 export default nextConfig;
 
-const nextConfig = {
-  // ...
-  experimental: {
-    optimizePackageImports: ["lucide-react"],
-  },
-
-  middlewareClientMaxBodySize: 524288000, // 500 MB
-};
-
-export default nextConfig;
