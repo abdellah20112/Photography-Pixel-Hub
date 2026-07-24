@@ -43,7 +43,7 @@ function setSecurityHeaders(response: NextResponse): void {
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: https:",
       "font-src 'self' data:",
-      "connect-src 'self'",
+      "connect-src 'self' https://*.r2.cloudflarestorage.com",
       "frame-ancestors 'none'",
       "base-uri 'self'",
       "form-action 'self'",
